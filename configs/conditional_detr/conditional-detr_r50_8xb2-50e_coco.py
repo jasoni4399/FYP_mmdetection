@@ -39,4 +39,6 @@ model = dict(
 # learning policy
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=50, val_interval=1)
 
-param_scheduler = [dict(type='MultiStepLR', end=50, milestones=[40])]
+param_scheduler = [dict(type='MultiStepLR', end=50, milestones=[40],enable_auto_scale_lr=True)]
+
+auto_scale_lr = dict(base_batch_size=16)
