@@ -124,6 +124,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #or
         content_w_h=torch.tensor([self.content_width,self.content_height],device=reference_point_select.device)
         content_w_h=content_w_h.unsqueeze(0).repeat(reference_point_select.size(0),reference_point_select.size(1),1)
+        
         query=self.content_query(
             self.box_estimation(reference_point_select)+
             #
