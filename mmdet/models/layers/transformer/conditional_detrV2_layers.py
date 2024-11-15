@@ -59,10 +59,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #                       self.embed_dims, 2)
         self.ref_select=MLP(self.embed_dims, self.embed_dims,
                                2, 2)
-        self.content_query=MLP(self.embed_dims+2, self.embed_dims,
+        self.content_query=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
-                               self.embed_dims+2, 2)
+                               self.embed_dims, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
@@ -127,8 +127,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         
         k=self.box_estimation(key_pos)
         pe=inverse_sigmoid(torch.cat([reference_xy, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        pe=pe[..., :256]
         print(k.size(),pe.size())
-        query=self.content_query(coordinate_to_encoding(coord_tensor=k+pe[..., :256]).sigmoid())
+        query=self.content_query(coordinate_to_encoding(coord_tensor=k+pe).sigmoid())
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
