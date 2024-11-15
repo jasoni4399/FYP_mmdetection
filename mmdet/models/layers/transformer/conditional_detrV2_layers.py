@@ -12,11 +12,10 @@ import torch.nn.functional as F
 
 from mmdet.utils import OptConfigType, OptMultiConfig,ConfigType
 from mmcv.cnn.bricks.drop import Dropout
-from mmdet.models.layers.transformer import inverse_sigmoid
 from .detr_layers import DetrTransformerDecoder, DetrTransformerDecoderLayer
 from layers import (SinePositionalEncoding)
 
-from .utils import MLP, ConditionalAttention, coordinate_to_encoding
+from .utils import MLP, ConditionalAttention, coordinate_to_encoding,inverse_sigmoid
 
 try:
     from fairscale.nn.checkpoint import checkpoint_wrapper
