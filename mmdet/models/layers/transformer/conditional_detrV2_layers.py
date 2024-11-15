@@ -102,10 +102,11 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #reference_unsigmoid = self.ref_point_head(
         #    query_pos)  # [bs, num_queries, 2]
         #V2 box query
+        
         reference_unsigmoid = self.ref_point_head(key_pos)# [bs, num_keys, 2]
         reference_point = reference_unsigmoid.sigmoid()
         reference_point_xy = reference_point[..., :2]#x(Cx,Cy)
-
+        breakpoint()
         #V2
         #lambda_q=self.lambda_q(reference_point_xy)
         reference_point_selection=self.ref_select(reference_point_xy)
@@ -131,7 +132,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(reference_point_xy)
+                pos_transformation = self.query_scale(reference_xy)
             # get sine embedding for the query reference
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
             # apply transformation
