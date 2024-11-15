@@ -62,7 +62,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.content_query=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
-                               2, 2)
+                               self.embed_dims, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
@@ -110,8 +110,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         #V2
         #s
-        reference_point_selection=self.ref_select(key_pos)
-        reference_point_selection=reference_point_selection[...,:2].contiguous()
+        reference_point_select=self.ref_select(key_pos)
+        reference_point_selection=reference_point_select[...,:2].contiguous()
         #reference_point_selection[reference_point_selection[0] != 1] = 0
         reference_point_selection = reference_point_selection.sigmoid()
         choose_top=torch.tensor([0.0, 1.0], device=reference_point_selection.device)#
@@ -122,14 +122,14 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
-        content_w_h=torch.tensor([self.content_width,self.content_height],device=key_pos.device)
-        content_w_h=content_w_h.unsqueeze(0).repeat(key_pos.size(0),key_pos.size(1),1)
+        content_w_h=torch.tensor([self.content_width,self.content_height],device=reference_point_select.device)
+        content_w_h=content_w_h.unsqueeze(0).repeat(reference_point_select.size(0),reference_point_select.size(1),1)
         query=self.content_query(
-            self.box_estimation(key_pos)+
+            self.box_estimation(reference_point_select)+
             #
             coordinate_to_encoding(
                 coord_tensor=inverse_sigmoid(
-                    torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0)))
+                    torch.cat([reference_point_select, content_w_h],dim=2).permute(2,1,0)))
                 ).sigmoid()
 
         intermediate = []
