@@ -170,6 +170,6 @@ class ConditionalDETR_V2(DETR):
 
         # prepare transformer_inputs_dict
         encoder_inputs_dict = dict(
-            feat=feat, feat_mask=masks, feat_pos=pos_embed,height=feats_height, width=feats_width)
+            feat=feat, feat_mask=masks, feat_pos=pos_embed)
         decoder_inputs_dict = dict(memory_mask=masks, memory_pos=pos_embed)
         return encoder_inputs_dict, decoder_inputs_dict

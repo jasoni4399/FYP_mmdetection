@@ -3,7 +3,7 @@ import torch
 from mmcv.cnn import (Linear,build_norm_layer)
 import warnings
 from typing import Tuple,Union
-from mmcv.cnn.bricks.transformer import FFN
+from mmcv.cnn.bricks.transformer import FFN,MultiheadAttention
 from torch import Tensor, nn
 from torch.nn import ModuleList
 from mmengine.model import BaseModule
@@ -102,7 +102,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #reference_unsigmoid = self.ref_point_head(
         #    query_pos)  # [bs, num_queries, 2]
         #V2 box query
-        breakpoint()
         reference_unsigmoid = self.ref_point_head(key_pos)# [bs, num_keys, 2]
         reference_point = reference_unsigmoid.sigmoid()
         reference_point_xy = reference_point[..., :2]#x(Cx,Cy)
@@ -347,7 +346,7 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
 
     def _init_layers(self) -> None:
         """Initialize self-attention, FFN, and normalization."""
-        self.self_attn = HVAttention(**self.self_attn_cfg)
+        self.self_attn = MultiheadAttention(**self.self_attn_cfg)
         self.embed_dims = self.self_attn.embed_dims
         self.ffn = FFN(**self.ffn_cfg)
         norms_list = [
