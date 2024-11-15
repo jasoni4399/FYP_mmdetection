@@ -1,19 +1,20 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
-from mmcv.cnn import (Linear, build_activation_layer, build_conv_layer,
-                      build_norm_layer)
+from mmcv.cnn import (Linear,build_norm_layer)
 import warnings
-from typing import Tuple
+from typing import Tuple,Union
 from mmcv.cnn.bricks.transformer import FFN
 from torch import Tensor, nn
 from torch.nn import ModuleList
 from mmengine.model import BaseModule
+from mmengine import ConfigDict
 import torch.nn.functional as F
 
 from mmdet.utils import OptConfigType, OptMultiConfig,ConfigType
 from mmcv.cnn.bricks.drop import Dropout
 from mmdet.models.layers.transformer import inverse_sigmoid
 from .detr_layers import DetrTransformerDecoder, DetrTransformerDecoderLayer
+from layers import (SinePositionalEncoding)
 
 from .utils import MLP, ConditionalAttention, coordinate_to_encoding
 
@@ -24,9 +25,28 @@ except Exception:
 
 class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
     """Decoder of Conditional DETR."""
+    def __init__(self,
+                 num_layers: int,
+                 layer_cfg: ConfigType,
+                 post_norm_cfg: OptConfigType = dict(type='LN'),
+                 return_intermediate: bool = True,
+                 init_cfg: Union[dict, ConfigDict] = None,
+                 positional_encoding: OptConfigType = None,
+                 content_width: OptConfigType = None,
+                 content_height: OptConfigType = None) -> None:
+        super().__init__(init_cfg=init_cfg,
+                         layer_cfg = layer_cfg,
+                         num_layers = num_layers,
+                         post_norm_cfg = post_norm_cfg,
+                         return_intermediate = return_intermediate)
+        self._init_layers()
+        self.content_width=content_width
+        self.content_height=content_height
 
     def _init_layers(self) -> None:
         """Initialize decoder layers and other layers."""
+        self.positional_encoding = SinePositionalEncoding(
+            **self.positional_encoding)
         self.layers = ModuleList([
             ConditionalDetrTransformerV2DecoderLayer(**self.layer_cfg)
             for _ in range(self.num_layers)
@@ -39,8 +59,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                                self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
 
-        self.lambda_q=MLP(self.embed_dims, self.embed_dims,
-                               self.embed_dims, 2)
+        #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
+        #                       self.embed_dims, 2)
         self.ref_select=MLP(self.embed_dims, self.embed_dims,
                                2, 2)
         self.content_query=MLP(self.embed_dims, self.embed_dims,
@@ -86,30 +106,37 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #reference_unsigmoid = self.ref_point_head(
         #    query_pos)  # [bs, num_queries, 2]
         #V2 box query
+        breakpoint()
         reference_unsigmoid = self.ref_point_head(key_pos)# [bs, num_keys, 2]
         reference_point = reference_unsigmoid.sigmoid()
         reference_point_xy = reference_point[..., :2]#x(Cx,Cy)
 
-        #V2 
-        lambda_q=self.lambda_q(reference_point_xy)
+        #V2
+        #lambda_q=self.lambda_q(reference_point_xy)
         reference_point_selection=self.ref_select(reference_point_xy)
         reference_point_selection=reference_point_selection[...,:1].contiguous()
         reference_point_selection[reference_point_selection != 1] = 0
         reference = reference_point_selection.sigmoid()
         reference_xy = reference[..., :2]#x(Cx,Cy)
         #Cq initial by image content
-        query=self.content_query(reference_xy)
+        #query=self.content_query(reference_xy)
         #or
+        content_w_h=torch.tensor([self.content_width,self.content_height])
+        content_w_h=content_w_h.unsqueeze(0).repeat(reference_xy.size(0),reference_xy.size(1),1)
         query=self.content_query(
-            self.box_estimation(reference_xy)#PE +inverse_sigmoid([reference_xy,cw,ch].)
-        ).sigmoid()
+            self.box_estimation(reference_xy)+
+            #
+            coordinate_to_encoding(
+                coord_tensor=inverse_sigmoid(
+                    torch.cat([reference_xy, content_w_h], dim=2).permute(2,1,0)))
+                ).sigmoid()
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(query)
+                pos_transformation = self.query_scale(reference_point_xy)
             # get sine embedding for the query reference
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
             # apply transformation
@@ -149,7 +176,9 @@ class ConditionalDetrTransformerV2Encoder(BaseModule):
                  num_layers: int,
                  layer_cfg: ConfigType,
                  num_cp: int = -1,
-                 init_cfg: OptConfigType = None) -> None:
+                 init_cfg: OptConfigType = None,
+                 content_width: OptConfigType = None,
+                 content_height: OptConfigType = None) -> None:
 
         super().__init__(init_cfg=init_cfg)
         self.num_layers = num_layers
@@ -157,6 +186,8 @@ class ConditionalDetrTransformerV2Encoder(BaseModule):
         self.num_cp = num_cp
         assert self.num_cp <= self.num_layers
         self._init_layers()
+        self.content_width=content_width
+        self.content_height=content_height
 
     def _init_layers(self) -> None:
         """Initialize encoder layers."""
@@ -298,7 +329,9 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
                      ffn_drop=0.,
                      act_cfg=dict(type='ReLU', inplace=True)),
                  norm_cfg: OptConfigType = dict(type='LN'),
-                 init_cfg: OptConfigType = None) -> None:
+                 init_cfg: OptConfigType = None,
+                 content_width: OptConfigType = None,
+                 content_height: OptConfigType = None) -> None:
 
         super().__init__(init_cfg=init_cfg)
 
@@ -313,83 +346,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
         self.ffn_cfg = ffn_cfg
         self.norm_cfg = norm_cfg
         self._init_layers()
-
-    def _init_layers(self) -> None:
-        """Initialize self-attention, FFN, and normalization."""
-        self.self_attn = V2.HVAttention(**self.self_attn_cfg)
-        self.embed_dims = self.self_attn.embed_dims
-        self.ffn = FFN(**self.ffn_cfg)
-        norms_list = [
-            build_norm_layer(self.norm_cfg, self.embed_dims)[1]
-            for _ in range(2)
-        ]
-        self.norms = ModuleList(norms_list)
-
-    def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, **kwargs) -> Tensor:
-        """Forward function of an encoder layer.
-
-        Args:
-            query (Tensor): The input query, has shape (bs, num_queries, dim).
-            query_pos (Tensor): The positional encoding for query, with
-                the same shape as `query`.
-            key_padding_mask (Tensor): The `key_padding_mask` of `self_attn`
-                input. ByteTensor. has shape (bs, num_queries).
-        Returns:
-            Tensor: forwarded results, has shape (bs, num_queries, dim).
-        """
-        query = self.self_attn(
-            query=query,
-            key=query,
-            value=query,
-            query_pos=query_pos,
-            key_pos=query_pos,
-            key_padding_mask=key_padding_mask,
-            **kwargs)
-        query = self.norms[0](query)
-        query = self.ffn(query)
-        query = self.norms[1](query)
-
-        return query
-
-
-class ConditionalDetrWithBoxQueryTransformerEncoderLayer(BaseModule):
-    """Implements encoder layer in DETR transformer.
-        Args:
-            self_attn_cfg (:obj:`ConfigDict` or dict, optional): Config for self
-                attention.
-            ffn_cfg (:obj:`ConfigDict` or dict, optional): Config for FFN.
-            norm_cfg (:obj:`ConfigDict` or dict, optional): Config for
-                normalization layers. All the layers will share the same
-                config. Defaults to `LN`.
-            init_cfg (:obj:`ConfigDict` or dict, optional): Config to control
-                the initialization. Defaults to None.
-    """
-    def __init__(self,
-                self_attn_cfg: OptConfigType = dict(
-                    embed_dims=256, num_heads=8, dropout=0.0),
-                ffn_cfg: OptConfigType = dict(
-                    embed_dims=256,
-                    feedforward_channels=1024,
-                    num_fcs=2,
-                    ffn_drop=0.,
-                    act_cfg=dict(type='ReLU', inplace=True)),
-                norm_cfg: OptConfigType = dict(type='LN'),
-                init_cfg: OptConfigType = None) -> None:
-
-        super().__init__(init_cfg=init_cfg)
-
-        self.self_attn_cfg = self_attn_cfg
-        if 'batch_first' not in self.self_attn_cfg:
-            self.self_attn_cfg['batch_first'] = True
-        else:
-            assert self.self_attn_cfg['batch_first'] is True, 'First \
-            dimension of all DETRs in mmdet is `batch`, \
-            please set `batch_first` flag.'
-
-        self.ffn_cfg = ffn_cfg
-        self.norm_cfg = norm_cfg
-        self._init_layers()
+        self.content_width=content_width
+        self.content_height=content_height
 
     def _init_layers(self) -> None:
         """Initialize self-attention, FFN, and normalization."""
@@ -422,6 +380,8 @@ class ConditionalDetrWithBoxQueryTransformerEncoderLayer(BaseModule):
             query_pos=query_pos,
             key_pos=query_pos,
             key_padding_mask=key_padding_mask,
+            content_width=self.content_width,
+            content_height=self.content_height,
             **kwargs)
         query = self.norms[0](query)
         query = self.ffn(query)
@@ -459,7 +419,9 @@ class HVAttention(BaseModule):
                  cross_attn: bool = False,
                  keep_query_pos: bool = False,
                  batch_first: bool = True,
-                 init_cfg: OptMultiConfig = None):
+                 init_cfg: OptMultiConfig = None,
+                 content_width: OptConfigType = None,
+                 content_height: OptConfigType = None):
         super().__init__(init_cfg=init_cfg)
 
         assert batch_first is True, 'Set `batch_first`\
@@ -512,7 +474,6 @@ class HVAttention(BaseModule):
                 Defaults to None.
             key_padding_mask (Tensor): ByteTensor with shape [bs, num_keys].
                 Defaults to None.
-            HV(Bool): True for H-attention, False V-attention
         Returns:
             Tuple[Tensor]: Attention outputs of shape :math:`(N, L, E)`,
             where :math:`N` is the batch size, :math:`L` is the target
@@ -530,7 +491,7 @@ class HVAttention(BaseModule):
             f'{"q_dims, k_dims must be equal"}'
         assert value.size(2) == self.embed_dims, \
             f'{"v_dims must be equal to embed_dims"}'
-        #b,  _,      h*w
+        #2, 300    , 256
         bs, tgt_len, hidden_dims = query.size()
         _, src_len, _ = key.size()
         head_dims = hidden_dims // self.num_heads
@@ -543,6 +504,7 @@ class HVAttention(BaseModule):
         k = key
         v = value
 
+        #None
         if attn_mask is not None:
             assert attn_mask.dtype == torch.float32 or \
                    attn_mask.dtype == torch.float64 or \
@@ -574,7 +536,7 @@ class HVAttention(BaseModule):
                     "attn_mask's dimension {} is not supported".format(
                         attn_mask.dim()))
         # attn_mask's dim is 3 now.
-
+        #None
         if key_padding_mask is not None and key_padding_mask.dtype == int:
             key_padding_mask = key_padding_mask.to(torch.bool)
 
@@ -585,9 +547,9 @@ class HVAttention(BaseModule):
                                     head_dims).permute(0, 2, 1,
                                                        3).flatten(0, 1)
         if v is not None:
-            #proj_value = v.contiguous().view(bs, src_len, self.num_heads,
-            #                        v_head_dims).permute(0, 2, 1,
-            #                                             3).flatten(0, 1)
+            proj_value = v.contiguous().view(bs, src_len, self.num_heads,
+                                    v_head_dims).permute(0, 2, 1,
+                                                         3).flatten(0, 1)
             proj_value_H = v.permute(0,3,1,2).contiguous().view(bs, src_len, self.num_heads,
                                     head_dims)
             proj_value_W = v.permute(0,2,1,3).contiguous().view(bs, src_len, self.num_heads,
@@ -736,7 +698,7 @@ class HVAttention(BaseModule):
 
             #self attention for encoder
 
-            b,_,H,W=query.size()
+            #b,_,H,W=query.size()
             q_content = self.qcontent_proj(query)
             q_pos = self.qpos_proj(query_pos)
             k_content = self.kcontent_proj(query)
