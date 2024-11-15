@@ -103,28 +103,31 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #    query_pos)  # [bs, num_queries, 2]
         #V2 box query
         
+        #lambda_q
         reference_unsigmoid = self.ref_point_head(key_pos)# [bs, num_keys, 2]
         reference_point = reference_unsigmoid.sigmoid()
         reference_point_xy = reference_point[..., :2]#x(Cx,Cy)
         breakpoint()
+
         #V2
-        #lambda_q=self.lambda_q(reference_point_xy)
-        reference_point_selection=self.ref_select(reference_point_xy)
+        #s
+        reference_point_selection=self.ref_select(key_pos)
         reference_point_selection=reference_point_selection[...,:1].contiguous()
         reference_point_selection[reference_point_selection != 1] = 0
         reference = reference_point_selection.sigmoid()
         reference_xy = reference[..., :2]#x(Cx,Cy)
+
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
         content_w_h=torch.tensor([self.content_width,self.content_height])
-        content_w_h=content_w_h.unsqueeze(0).repeat(reference_xy.size(0),reference_xy.size(1),1)
+        content_w_h=content_w_h.unsqueeze(0).repeat(key_pos.size(0),key_pos.size(1),1)
         query=self.content_query(
-            self.box_estimation(reference_xy)+
+            self.box_estimation(key_pos)+
             #
             coordinate_to_encoding(
                 coord_tensor=inverse_sigmoid(
-                    torch.cat([reference_xy, content_w_h], dim=2).permute(2,1,0)))
+                    torch.cat([key_pos, content_w_h], dim=2).permute(2,1,0)))
                 ).sigmoid()
 
         intermediate = []
@@ -132,8 +135,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(reference_xy)
-            # get sine embedding for the query reference
+                pos_transformation = self.query_scale(reference_point_xy) #lambda_q
+            # get sine embedding for the query reference #Ps
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
