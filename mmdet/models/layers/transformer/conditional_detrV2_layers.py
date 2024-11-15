@@ -30,8 +30,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                  return_intermediate: bool = True,
                  init_cfg: Union[dict, ConfigDict] = None,
                  positional_encoding: OptConfigType = None,
-                 content_width: OptConfigType = None,
-                 content_height: OptConfigType = None) -> None:
+                 content_width: OptConfigType = 0.4,
+                 content_height: OptConfigType = 0.4) -> None:
         super().__init__(init_cfg=init_cfg,
                          layer_cfg = layer_cfg,
                          num_layers = num_layers,
@@ -112,10 +112,12 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #V2
         #s
         reference_point_selection=self.ref_select(key_pos)
-        reference_point_selection=reference_point_selection[...,:1].contiguous()
-        reference_point_selection[reference_point_selection != 1] = 0
-        reference = reference_point_selection.sigmoid()
-        reference_xy = reference[..., :2]#x(Cx,Cy)
+        reference_point_selection=reference_point_selection[...,:2].contiguous()
+        #reference_point_selection[reference_point_selection[0] != 1] = 0
+        reference_point_selection = reference_point_selection.sigmoid()
+        reference_point_selection[reference_point_selection[:, 0] != 1] = torch.tensor([0.0, 1.0])
+        
+        #reference_xy = reference[..., :2]#x(Cx,Cy)
 
         #Cq initial by image content
         #query=self.content_query(reference_xy)
