@@ -13,7 +13,6 @@ import torch.nn.functional as F
 from mmdet.utils import OptConfigType, OptMultiConfig,ConfigType
 from mmcv.cnn.bricks.drop import Dropout
 from .detr_layers import DetrTransformerDecoder, DetrTransformerDecoderLayer
-from layers import (SinePositionalEncoding)
 
 from .utils import MLP, ConditionalAttention, coordinate_to_encoding,inverse_sigmoid
 
@@ -44,8 +43,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
     def _init_layers(self) -> None:
         """Initialize decoder layers and other layers."""
-        self.positional_encoding = SinePositionalEncoding(
-            **self.positional_encoding)
         self.layers = ModuleList([
             ConditionalDetrTransformerV2DecoderLayer(**self.layer_cfg)
             for _ in range(self.num_layers)
