@@ -128,7 +128,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         k=self.box_estimation(key_pos)
         pe=inverse_sigmoid(torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         print(k.size(),pe.size())
-        query=self.content_query(coordinate_to_encoding(coord_tensor=k.expand(-1,-1,pe.size(2))+pe)).sigmoid()
+        query=self.content_query(coordinate_to_encoding(coord_tensor=k.repeat(1,1,258//256)+pe)).sigmoid()
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
