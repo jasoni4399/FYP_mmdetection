@@ -1,6 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .conditional_detr_layers import (ConditionalDetrTransformerDecoder,
                                       ConditionalDetrTransformerDecoderLayer)
+from .conditional_detrV2_layers import (ConditionalDetrTransformerV2Decoder,
+                                        ConditionalDetrTransformerV2Encoder,
+                                        ConditionalDetrTransformerV2DecoderLayer,
+                                        ConditionalDetrTransformerV2EncoderLayer,
+                                        HVAttention)
 from .dab_detr_layers import (DABDetrTransformerDecoder,
                               DABDetrTransformerDecoderLayer,
                               DABDetrTransformerEncoder)
@@ -37,5 +42,10 @@ __all__ = [
     'CdnQueryGenerator', 'Mask2FormerTransformerEncoder',
     'Mask2FormerTransformerDecoderLayer', 'Mask2FormerTransformerDecoder',
     'GroundingDinoTransformerDecoderLayer', 'GroundingDinoTransformerEncoder',
-    'GroundingDinoTransformerDecoder'
+    'GroundingDinoTransformerDecoder',
+    "ConditionalDetrTransformerV2Decoder",
+    "ConditionalDetrTransformerV2Encoder",
+    "ConditionalDetrTransformerV2DecoderLayer",
+    "ConditionalDetrTransformerV2EncoderLayer",
+    "HVAttention",
 ]
