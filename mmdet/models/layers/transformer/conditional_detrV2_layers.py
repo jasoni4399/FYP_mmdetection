@@ -126,7 +126,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         content_w_h=content_w_h.unsqueeze(0).repeat(key_pos.size(0),key_pos.size(1),1)
         
         k=self.box_estimation(key_pos)
-        pe=inverse_sigmoid(torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0))#
+        pe=inverse_sigmoid(torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         print(k.size(),pe.size())
         query=self.content_query(coordinate_to_encoding(coord_tensor=k+pe)).sigmoid()
 
