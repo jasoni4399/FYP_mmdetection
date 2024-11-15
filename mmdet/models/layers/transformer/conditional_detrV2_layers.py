@@ -114,7 +114,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection=reference_point_selection[...,:2].contiguous()
         #reference_point_selection[reference_point_selection[0] != 1] = 0
         reference_point_selection = reference_point_selection.sigmoid()
-        reference_point_selection[reference_point_selection[:,:,0] != 1] = torch.tensor([0.0, 1.0])
+        f=torch.tensor([0.0, 1.0], device=reference_point_selection.device)
+        reference_point_selection[reference_point_selection[:,:,0] != 1] = f
         
         #reference_xy = reference[..., :2]#x(Cx,Cy)
 
