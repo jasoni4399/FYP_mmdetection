@@ -117,7 +117,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         choose_top=torch.tensor([0.0, 1.0], device=reference_point_selection.device)#
         reference_point_selection[reference_point_selection[:,:,0] != 1] = choose_top
         
-        #reference_xy = reference[..., :2]#x(Cx,Cy)
+        reference_xy = reference_point_selection[..., :2]#x(Cx,Cy)
 
         #Cq initial by image content
         #query=self.content_query(reference_xy)
@@ -154,10 +154,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), reference
+            return torch.stack(intermediate), reference_point_selection
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), reference
+        return query.unsqueeze(0), reference_point_selection
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
