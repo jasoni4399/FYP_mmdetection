@@ -538,7 +538,8 @@ class ConditionalAttention(BaseModule):
             f'{"q_dims, k_dims must be equal"}'
         assert value.size(2) == self.embed_dims, \
             f'{"v_dims must be equal to embed_dims"}'
-
+        
+        
         bs, tgt_len, hidden_dims = query.size()
         _, src_len, _ = key.size()
         head_dims = hidden_dims // self.num_heads

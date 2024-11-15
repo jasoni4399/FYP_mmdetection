@@ -62,6 +62,7 @@ class ConditionalDetrTransformerDecoder(DetrTransformerDecoder):
         """
         reference_unsigmoid = self.ref_point_head(
             query_pos)  # [bs, num_queries, 2]
+        #breakpoint()
         reference = reference_unsigmoid.sigmoid()
         reference_xy = reference[..., :2]
         intermediate = []
