@@ -130,7 +130,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 coord_tensor=inverse_sigmoid(
                     torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0)))#
         print(k.size(),pe.size())
-        query=self.content_query(k.tensor_a.expand(pe.size(0),-1, -1)+pe).sigmoid()
+        query=self.content_query(k.expand(pe.size(0),-1, -1)+pe).sigmoid()
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
