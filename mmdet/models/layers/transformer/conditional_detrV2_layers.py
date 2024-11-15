@@ -122,16 +122,15 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
-        content_w_h=torch.tensor([self.content_width,self.content_height],device=reference_point_select.device)
-        content_w_h=content_w_h.unsqueeze(0).repeat(reference_point_select.size(0),reference_point_select.size(1),1)
+        content_w_h=torch.tensor([self.content_width,self.content_height],device=key_pos.device)
+        content_w_h=content_w_h.unsqueeze(0).repeat(key_pos.size(0),key_pos.size(1),1)
         
-        query=self.content_query(
-            self.box_estimation(reference_point_select)+
-            #
-            coordinate_to_encoding(
+        k=self.box_estimation(key_pos)
+        pe=coordinate_to_encoding(
                 coord_tensor=inverse_sigmoid(
-                    torch.cat([reference_point_select, content_w_h],dim=2).permute(2,1,0)))
-                ).sigmoid()
+                    torch.cat([key_pos, content_w_h],dim=2).permute(2,1,0)))
+        print(k.size(),pe.size())
+        query=self.content_query(k+pe).sigmoid()
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
