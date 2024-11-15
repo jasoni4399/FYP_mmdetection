@@ -1,6 +1,6 @@
 _base_ = ['../detr/detr_r50_8xb2-150e_coco.py']
 model = dict(
-    type='ConditionalDETR',
+    type='ConditionalDETR_V2',
     num_queries=300,
     decoder=dict(
         num_layers=6,
