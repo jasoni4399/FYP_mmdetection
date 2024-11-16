@@ -59,7 +59,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #                       self.embed_dims, 2)
         self.ref_select=MLP(self.embed_dims, self.embed_dims,
                                2, 2)
-        self.content_query=MLP(self.embed_dims, self.embed_dims,
+        self.content_query=MLP(self.embed_dims*2, self.embed_dims,
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
@@ -133,7 +133,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         print(k.size(),pe_before.size())
         pe=coordinate_to_encoding(coord_tensor=k[...,:300, :4]+pe_before).sigmoid()
-        print("pe:",pe.size())
+        #pe: torch.Size([2, 300, 512])
         query=self.content_query(pe[...,:2*self.embed_dims])
 
         intermediate = []
