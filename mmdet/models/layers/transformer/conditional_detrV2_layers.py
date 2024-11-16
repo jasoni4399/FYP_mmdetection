@@ -109,7 +109,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #lambda_q
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
         #lambda_q = lambda_q.sigmoid()
-        lambda_q = lambda_q[..., :2]#lambda_q=FFN(x(Cx,Cy))
+        #lambda_q=FFN(x(Cx,Cy))
         print("lambda_q:",lambda_q.size())
 
         #V2
@@ -145,7 +145,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(lambda_q[...,:num_queries,:dim]) #lambda_q
+                lambda_q_=lambda_q[...,:num_queries,:dim]
+                pos_transformation = self.query_scale() #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
             print("ref_sine_embed",ref_sine_embed.size())
