@@ -105,13 +105,13 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #V2 box query
 
         bs,num_queries,dim=query_pos.size()
-        print(bs,num_queries,dim)
+        #print(bs,num_queries,dim)
         
         #lambda_q
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
         #lambda_q = lambda_q.sigmoid()
         #lambda_q=FFN(x(Cx,Cy))
-        print("lambda_q:",lambda_q.size())
+        #print("lambda_q:",lambda_q.size())
 
         #V2
         #reference_point
@@ -125,7 +125,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         
         reference_xy = reference_point_selection_choose[...,:num_queries, :2]#s=FFN(x(Cx,Cy))
         #reference_xywh = F.pad(reference_xy, (0, 2, 0, 0), mode='constant', value=0)
-        print("reference_xy:",reference_xy.size())
+        #print("reference_xy:",reference_xy.size())
 
         #Cq initial by image content
         #query=self.content_query(reference_xy)
@@ -137,14 +137,14 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         k_=k[...,:num_queries, :4]
         pe_before=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
 
-        print("k",k.size(),"pe_before",pe_before.size())
+        #print("k",k.size(),"pe_before",pe_before.size())
 
         pe=coordinate_to_encoding(coord_tensor=k_+pe_before)
         pe_sigmoid=pe.sigmoid()
         #pe: torch.Size([2, 300, 512])
-        print("pe",pe.size())
+        #print("pe",pe.size())
         query=self.content_query(pe_sigmoid)
-        print("query:",query.size())
+        #print("query:",query.size())
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
@@ -154,10 +154,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 pos_transformation = self.query_scale(lambda_q_cut) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
-            print("ref_sine_embed",ref_sine_embed.size())
+            #print("ref_sine_embed",ref_sine_embed.size())
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
-            print("ref_sine_embed_tran",ref_sine_embed.size())
+            #print("ref_sine_embed_tran",ref_sine_embed.size())
             query = layer(
                 query,#box query
                 key=key,#encoder embedding
