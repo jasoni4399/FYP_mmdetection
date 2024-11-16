@@ -118,18 +118,16 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection[reference_point_selection[:,:,0] != 1] = choose_top
         
         reference_xy = reference_point_selection[..., :2]#x(Cx,Cy)
-        print(reference_xy,reference_xy.size())
 
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
         content_w_h=torch.tensor([self.content_width,self.content_height],device=key_pos.device)
-        content_w_h=content_w_h.unsqueeze(0).repeat(query_pos.size(0),query_pos.size(1),1)
+        content_w_h=content_w_h.unsqueeze(0).repeat(reference_xy.size(0),reference_xy.size(1),1)
         
         k=self.box_estimation(key_pos)
-        pe=inverse_sigmoid(torch.cat([query_pos, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
-        pe=pe[..., :256]
-        print(k.size(),pe.size())
+        pe=inverse_sigmoid(torch.cat([reference_xy, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        pe=pe[..., 2:]
         query=self.content_query(coordinate_to_encoding(coord_tensor=k+pe).sigmoid())
 
         intermediate = []
