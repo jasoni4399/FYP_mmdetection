@@ -104,30 +104,33 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #V2 box query
         
         #lambda_q
-        reference_unsigmoid = self.ref_point_head(key_pos)# [bs, num_keys, 2]
-        reference_point = reference_unsigmoid.sigmoid()
-        reference_point_xy = reference_point[..., :2]#x(Cx,Cy)
+        lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
+        #lambda_q = lambda_q.sigmoid()
+        lambda_q = lambda_q[..., :2]#lambda_q=FFN(x(Cx,Cy))
+        print("lambda_q:",lambda_q.size())
 
         #V2
-        #s
-        reference_point_select=self.ref_select(key_pos)
-        reference_point_selection=reference_point_select[...,:2].contiguous()
+        #reference_point
+        reference_unsigmoid=self.ref_select(key_pos)
+        reference_point_selection=reference_unsigmoid[...,:2].contiguous()
         #reference_point_selection[reference_point_selection[0] != 1] = 0
         reference_point_selection = reference_point_selection.sigmoid()
         choose_top=torch.tensor([0.0, 1.0], device=reference_point_selection.device)#
         reference_point_selection[reference_point_selection[:,:,0] != 1] = choose_top
         
-        reference_xy = reference_point_selection[..., :2]#x(Cx,Cy)
+        reference_xy = reference_point_selection[..., :2]#s=FFN(x(Cx,Cy))
+        reference_xy = F.pad(reference_xy, (0, 2, 0, 0), mode='constant', value=0)
+        print("reference_xy:",reference_xy,reference_xy.size)
 
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
-        content_w_h=torch.tensor([self.content_width,self.content_height],device=key_pos.device)
-        content_w_h=content_w_h.unsqueeze(0).repeat(query.size(0),query.size(1),1)
+        content_w_h=torch.tensor([self.content_width,self.content_height],device=query_pos.device)
+        content_w_h=content_w_h.unsqueeze(0).repeat(query_pos[..., :2].size(0),query_pos[..., :2].size(1),1)
         
         k=self.box_estimation(key_pos)
-        pe=inverse_sigmoid(torch.cat([query, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
-        pe=pe[..., :256]
+        pe=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+
         print(k.size(),pe.size())
         query=self.content_query(coordinate_to_encoding(coord_tensor=k+pe).sigmoid())
 
@@ -136,9 +139,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(reference_point_xy) #lambda_q
-            # get sine embedding for the query reference #Ps
-            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
+                pos_transformation = self.query_scale(lambda_q) #lambda_q
+            # get sine embedding for the query reference 
+            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
             query = layer(
