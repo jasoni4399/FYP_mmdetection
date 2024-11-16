@@ -53,11 +53,11 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         # conditional detr affline
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
-        self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
+        self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
 
         #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
         #                       self.embed_dims, 2)
-        self.ref_select=MLP(2, self.embed_dims,
+        self.ref_select=MLP(self.embed_dims, self.embed_dims,
                                2, 2)
         self.content_query=MLP(self.embed_dims*2, self.embed_dims,
                                self.embed_dims, 2)
@@ -145,7 +145,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(lambda_q[...,:num_queries,:]) #lambda_q
+                pos_transformation = self.query_scale(lambda_q[...,:num_queries,:dim]) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
             print("ref_sine_embed",ref_sine_embed.size())
