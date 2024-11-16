@@ -137,18 +137,19 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         print("k",k.size(),"pe_before",pe_before.size())
 
-        pe=coordinate_to_encoding(coord_tensor=k_+pe_before).sigmoid()
+        pe=coordinate_to_encoding(coord_tensor=k_+pe_before)
+        pe_sigmoid=pe.sigmoid()
         #pe: torch.Size([2, 300, 512])
         print("pe",pe.size())
-        query=self.content_query(pe)
+        query=self.content_query(pe_sigmoid)
         print("query:",query.size())
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                lambda_q_=lambda_q[...,:num_queries,:dim]
-                pos_transformation = self.query_scale(lambda_q_) #lambda_q
+                lambda_q_cut=lambda_q[...,:num_queries,:dim]
+                pos_transformation = self.query_scale(lambda_q_cut) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
             print("ref_sine_embed",ref_sine_embed.size())
