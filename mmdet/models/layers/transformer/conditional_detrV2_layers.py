@@ -98,6 +98,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             with shape (1, bs, num_queries, dim). References with shape
             (bs, num_queries, 2).
         """
+
         #V1
         #reference_unsigmoid = self.ref_point_head(
         #    query_pos)  # [bs, num_queries, 2]
@@ -119,9 +120,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #reference_point_selection[reference_point_selection[0] != 1] = 0
         reference_point_selection = reference_point_selection.sigmoid()
         choose_top=torch.tensor([0.0, 1.0], device=reference_point_selection.device)#
-        reference_point_selection[reference_point_selection[:,:,0] != 1] = choose_top
+        reference_point_selection_choose=reference_point_selection.clone()
+        reference_point_selection_choose[reference_point_selection_choose[:,:,0] != 1] = choose_top
         
-        reference_xy = reference_point_selection[...,:num_queries, :2]#s=FFN(x(Cx,Cy))
+        reference_xy = reference_point_selection_choose[...,:num_queries, :2]#s=FFN(x(Cx,Cy))
         #reference_xywh = F.pad(reference_xy, (0, 2, 0, 0), mode='constant', value=0)
         print("reference_xy:",reference_xy.size())
 
