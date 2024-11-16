@@ -134,7 +134,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         print(k.size(),pe_before.size())
         pe=coordinate_to_encoding(coord_tensor=k[...,:300, :4]+pe_before).sigmoid()
         print("pe:",pe.size())
-        query=self.content_query(pe[...,2*self.embed_dims])
+        query=self.content_query(pe[...,:2*self.embed_dims])
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
