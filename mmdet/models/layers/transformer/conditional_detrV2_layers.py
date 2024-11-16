@@ -134,8 +134,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         print(k.size(),pe_before.size())
         pe=coordinate_to_encoding(coord_tensor=k[...,:300, :4]+pe_before).sigmoid()
         #pe: torch.Size([2, 300, 512])
-        query=self.content_query(pe[...,:2*self.embed_dims])
-
+        query=self.content_query(pe)
+        print(query.size())
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
