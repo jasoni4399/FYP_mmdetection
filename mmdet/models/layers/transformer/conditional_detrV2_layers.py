@@ -164,10 +164,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), reference_point_selection
+            return torch.stack(intermediate), reference_xy
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), reference_point_selection
+        return query.unsqueeze(0), reference_xy
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
