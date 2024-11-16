@@ -119,7 +119,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection[reference_point_selection[:,:,0] != 1] = choose_top
         
         reference_xy = reference_point_selection[..., :2]#s=FFN(x(Cx,Cy))
-        reference_xy = F.pad(reference_xy, (0, 2, 0, 0), mode='constant', value=0)
+        #reference_xywh = F.pad(reference_xy, (0, 2, 0, 0), mode='constant', value=0)
         print("reference_xy:",reference_xy,reference_xy.size)
 
         #Cq initial by image content
@@ -132,7 +132,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         pe=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
 
         print(k.size(),pe.size())
-        query=self.content_query(coordinate_to_encoding(coord_tensor=k[..., :2]+pe).sigmoid())
+        query=self.content_query(coordinate_to_encoding(coord_tensor=k[..., :4]+pe).sigmoid())
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
