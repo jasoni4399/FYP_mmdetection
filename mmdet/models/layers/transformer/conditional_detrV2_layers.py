@@ -132,10 +132,12 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         content_w_h=content_w_h.unsqueeze(0).repeat(query_pos[..., :2].size(0),query_pos[..., :2].size(1),1)
         
         k=self.box_estimation(key_pos)
+        k_=k[...,:num_queries, :4]
         pe_before=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
 
         print("k",k.size(),"pe_before",pe_before.size())
-        pe=coordinate_to_encoding(coord_tensor=k[...,:num_queries, :4]+pe_before).sigmoid()
+
+        pe=coordinate_to_encoding(coord_tensor=k_+pe_before).sigmoid()
         #pe: torch.Size([2, 300, 512])
         print("pe",pe.size())
         query=self.content_query(pe)
@@ -145,7 +147,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(lambda_q[...,:num_queries,:dim]) #lambda_q
+                lambda_q_=lambda_q[...,:num_queries,:dim]
+                pos_transformation = self.query_scale(lambda_q_) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)#Ps
             print("ref_sine_embed",ref_sine_embed.size())
