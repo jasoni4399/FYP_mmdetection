@@ -59,7 +59,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #                       self.embed_dims, 2)
         self.ref_select=MLP(self.embed_dims, self.embed_dims,
                                2, 2)
-        self.content_query=MLP(self.embed_dims*2, self.embed_dims,
+        self.content_query=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
@@ -129,10 +129,12 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         content_w_h=content_w_h.unsqueeze(0).repeat(query_pos[..., :2].size(0),query_pos[..., :2].size(1),1)
         
         k=self.box_estimation(key_pos)
-        pe=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        pe_before=inverse_sigmoid(torch.cat([query_pos[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
 
-        print(k.size(),pe.size())
-        query=self.content_query(coordinate_to_encoding(coord_tensor=k[...,:300, :4]+pe).sigmoid()[...,...,2*self.embed_dims])
+        print(k.size(),pe_before.size())
+        pe=coordinate_to_encoding(coord_tensor=k[...,:300, :4]+pe_before).sigmoid()
+        print("pe:",pe.size())
+        query=self.content_query(pe[...,...,2*self.embed_dims])
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
