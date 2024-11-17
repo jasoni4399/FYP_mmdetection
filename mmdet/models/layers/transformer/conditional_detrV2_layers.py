@@ -120,8 +120,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection_choose=reference_point_selection.clone()
         key_pos_selection=key_pos.clone()
         key_pos_selection=key_pos_selection[...,:2]
-        reference_selected=torch.empty(bs,num_queries,2)
-        key_pos_selected=torch.empty(bs,num_queries,2)
+        reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
+        key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         for i in range(bs):
             reference_point_selection_choose=reference_point_selection.clone()
             key_pos_select=key_pos_selection[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
@@ -152,7 +152,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         content_w_h=content_w_h.unsqueeze(0).repeat(key_pos_selected[..., :2].size(0),key_pos_selected[..., :2].size(1),1)
         
         k=self.box_estimation(key_pos)
-        pe_before=inverse_sigmoid(torch.cat([key_pos_selected[..., :2], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         #print("k",k.size(),"pe_before",pe_before.size())
         pe=coordinate_to_encoding(coord_tensor=k[...,:num_queries, :4]+pe_before)
         pe_sigmoid=pe.sigmoid()
