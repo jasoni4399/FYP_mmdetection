@@ -118,11 +118,13 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
 
         reference_point_selection_choose=reference_point_selection.clone()
+        key_pos_selection=key_pos.clone()
+        key_pos_selection=key_pos_selection[...,:2]
         reference_selected=torch.empty(bs,num_queries,2)
         key_pos_selected=torch.empty(bs,num_queries,2)
         for i in range(bs):
             reference_point_selection_choose=reference_point_selection.clone()
-            key_pos_select=key_pos[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
+            key_pos_select=key_pos_selection[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
             select_reference=reference_point_selection_choose[i][:][reference_point_selection_choose[i][:,0] ==torch.max(reference_point_selection_choose[i][:,0])]
             #print("before",key_pos_select.size())
             if select_reference.size(0)<num_queries:
