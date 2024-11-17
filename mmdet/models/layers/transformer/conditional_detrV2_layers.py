@@ -122,23 +122,27 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         key_pos_selection=key_pos_selection[...,:2]
         reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
+        lambda_q_selected=torch.empty(bs,num_queries,dim,device=query_pos.device)
         for i in range(bs):
-            reference_point_selection_choose=reference_point_selection.clone()
+            lambda_q_select=lambda_q[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]
             key_pos_select=key_pos_selection[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
             select_reference=reference_point_selection_choose[i][:][reference_point_selection_choose[i][:,0] ==torch.max(reference_point_selection_choose[i][:,0])]
             #print("before",key_pos_select.size())
             if select_reference.size(0)<num_queries:
                 select_reference = F.pad(select_reference, (0,0,0,num_queries-select_reference.size(0)), "constant",0)
                 key_pos_select = F.pad(key_pos_select, (0,0,0,num_queries-key_pos_select.size(0)), "constant",0)
+                lambda_q_select = F.pad(key_pos_select, (0,0,0,num_queries-lambda_q_select.size(0)), "constant",0)
             elif select_reference.size(0)>=num_queries:
                 select_reference=select_reference[:num_queries,:2]
-                key_pos_select=select_reference[:num_queries,:2]
+                key_pos_select=key_pos_select[:num_queries,:2]
+                lambda_q_select=lambda_q_select[:num_queries,:dim]
             #print("after",key_pos_select.size())
             reference_selected[i]=select_reference
             key_pos_selected[i]=key_pos_select
+            lambda_q_selected[i]=lambda_q_select
 
         #Ps
-        selected_reference_sigmoid=select_reference.sigmoid()
+        selected_reference_sigmoid=reference_selected.sigmoid()
         selected_reference_xy = selected_reference_sigmoid[...,:2]
 
         #lambda_q = lambda_q.sigmoid()
@@ -168,7 +172,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 lambda_q_cut=lambda_q[...,:num_queries,:dim]
                 pos_transformation = self.query_scale(lambda_q_cut) #lambda_q
             # get sine embedding for the query reference 
-            ref_sine_embed = coordinate_to_encoding(coord_tensor=selected_reference_xy)#Ps
+            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_selected)#Ps
             #print("ref_sine_embed",ref_sine_embed.size())
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
@@ -185,10 +189,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), selected_reference_sigmoid
+            return torch.stack(intermediate), reference_selected
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), selected_reference_sigmoid
+        return query.unsqueeze(0), reference_selected
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
