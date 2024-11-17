@@ -122,7 +122,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         key_pos_selection=key_pos_selection[...,:2]
         reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
-        lambda_q_selected=torch.empty(bs,num_queries,dim,device=query_pos.device)
+        lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
         for i in range(bs):
             lambda_q_select=lambda_q[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]
             key_pos_select=key_pos_selection[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
@@ -135,7 +135,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             elif select_reference.size(0)>=num_queries:
                 select_reference=select_reference[:num_queries,:2]
                 key_pos_select=key_pos_select[:num_queries,:2]
-                lambda_q_select=lambda_q_select[:num_queries,:dim]
+                lambda_q_select=lambda_q_select[:num_queries,:self.embed_dims]
             #print("after",key_pos_select.size())
             reference_selected[i]=select_reference
             key_pos_selected[i]=key_pos_select
@@ -169,8 +169,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if layer_id == 0:
                 pos_transformation = 1
             else:
-                lambda_q_cut=lambda_q[...,:num_queries,:dim]
-                pos_transformation = self.query_scale(lambda_q_cut) #lambda_q
+                pos_transformation = self.query_scale(lambda_q_selected) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_selected)#Ps
             #print("ref_sine_embed",ref_sine_embed.size())
