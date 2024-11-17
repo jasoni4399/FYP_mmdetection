@@ -118,17 +118,25 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
 
         reference_point_selection_choose=reference_point_selection.clone()
-        key_pos_selected=key_pos[reference_point_selection_choose[:,:,0] == torch.max(reference_point_selection_choose[:,:,0])]
-        selected_reference=reference_point_selection_choose[reference_point_selection_choose[:,:,0] == torch.max(reference_point_selection_choose[:,:,0])]
-        
-        if selected_reference.size(1)<num_queries:
-            selected_reference = F.pad(selected_reference, (0,0,0,num_queries), "constant",0)
-            key_pos_selected = F.pad(key_pos_selected, (0,0,0,num_queries), "constant",0)
-        elif selected_reference.size(1)>num_queries:
-            selected_reference=selected_reference[...,num_queries,dim]
-            key_pos_selected=selected_reference[...,num_queries,dim]
+        reference_selected=torch.empty(bs,num_queries,2)
+        key_pos_selected=torch.empty(bs,num_queries,2)
+        for i in range(bs):
+            reference_point_selection_choose=reference_point_selection.clone()
+            key_pos_select=key_pos[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
+            select_reference=reference_point_selection_choose[i][:][reference_point_selection_choose[i][:,0] ==torch.max(reference_point_selection_choose[i][:,0])]
+            #print("before",key_pos_select.size())
+            if select_reference.size(0)<num_queries:
+                select_reference = F.pad(select_reference, (0,0,0,num_queries-select_reference.size(0)), "constant",0)
+                key_pos_select = F.pad(key_pos_select, (0,0,0,num_queries-key_pos_select.size(0)), "constant",0)
+            elif select_reference.size(0)>=num_queries:
+                select_reference=select_reference[:num_queries,:2]
+                key_pos_select=select_reference[:num_queries,:2]
+            #print("after",key_pos_select.size())
+            reference_selected[i]=select_reference
+            key_pos_selected[i]=key_pos_select
+
         #Ps
-        selected_reference_sigmoid=selected_reference.sigmoid()
+        selected_reference_sigmoid=select_reference.sigmoid()
         selected_reference_xy = selected_reference_sigmoid[...,:2]
 
         #lambda_q = lambda_q.sigmoid()
