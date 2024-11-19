@@ -36,9 +36,10 @@ model = dict(
                 dict(type='FocalLossCost', weight=2.0),
                 dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
                 dict(type='IoUCost', iou_mode='giou', weight=2.0)
-            ])),
-            
-    log_config = dict(
+            ])))
+
+
+log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
@@ -46,8 +47,6 @@ model = dict(
         dict(type='JsonLoggerHook'),
         dict(type='FileLoggerHook', log_dir='./work_dirs/logs/')
     ])
-    )
-
 
 # learning policy
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=18, val_interval=1)
