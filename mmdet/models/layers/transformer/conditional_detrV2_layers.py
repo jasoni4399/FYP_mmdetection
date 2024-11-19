@@ -114,13 +114,14 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #s=FFN(x(Cx,Cy))
         reference_unsigmoid=self.ref_select(key_pos)
         reference_point_selection=reference_unsigmoid[...,:2]
+        
         #selection
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
 
         reference_point_selection_choose=reference_point_selection.clone()
         key_pos_selection=key_pos.clone()
         key_pos_selection=key_pos_selection[...,:2]
-        
+
         reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
@@ -172,7 +173,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             else:
                 pos_transformation = self.query_scale(lambda_q_selected) #lambda_q
             # get sine embedding for the query reference 
-            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_selected)#Ps
+            ref_sine_embed = coordinate_to_encoding(coord_tensor=selected_reference_xy)#Ps
             #print("ref_sine_embed",ref_sine_embed.size())
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
