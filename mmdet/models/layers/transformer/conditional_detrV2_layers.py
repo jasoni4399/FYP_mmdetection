@@ -120,6 +120,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection_choose=reference_point_selection.clone()
         key_pos_selection=key_pos.clone()
         key_pos_selection=key_pos_selection[...,:2]
+        
         reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
         lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
@@ -131,7 +132,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             if select_reference.size(0)<num_queries:
                 select_reference = F.pad(select_reference, (0,0,0,num_queries-select_reference.size(0)), "constant",0)
                 key_pos_select = F.pad(key_pos_select, (0,0,0,num_queries-key_pos_select.size(0)), "constant",0)
-                lambda_q_select = F.pad(key_pos_select, (0,0,0,num_queries-lambda_q_select.size(0)), "constant",0)
+                lambda_q_select = F.pad(lambda_q_select, (0,0,0,num_queries-lambda_q_select.size(0)), "constant",0)
             elif select_reference.size(0)>=num_queries:
                 select_reference=select_reference[:num_queries,:2]
                 key_pos_select=key_pos_select[:num_queries,:2]
