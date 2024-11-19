@@ -114,34 +114,41 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #s=FFN(x(Cx,Cy))
         reference_unsigmoid=self.ref_select(key_pos)
         reference_point_selection=reference_unsigmoid[...,:2]
-        
+
         #selection
         lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
 
         reference_point_selection_choose=reference_point_selection.clone()
+        #(Cx,Cy)
         key_pos_selection=key_pos.clone()
         key_pos_selection=key_pos_selection[...,:2]
 
-        reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
-        key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
-        lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
-        for i in range(bs):
-            lambda_q_select=lambda_q[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]
-            key_pos_select=key_pos_selection[i][:][reference_point_selection_choose[i][:,0]== torch.max(reference_point_selection_choose[i][:,0])]#
-            select_reference=reference_point_selection_choose[i][:][reference_point_selection_choose[i][:,0] ==torch.max(reference_point_selection_choose[i][:,0])]
-            #print("before",key_pos_select.size())
-            if select_reference.size(0)<num_queries:
-                select_reference = F.pad(select_reference, (0,0,0,num_queries-select_reference.size(0)), "constant",0)
-                key_pos_select = F.pad(key_pos_select, (0,0,0,num_queries-key_pos_select.size(0)), "constant",0)
-                lambda_q_select = F.pad(lambda_q_select, (0,0,0,num_queries-lambda_q_select.size(0)), "constant",0)
-            elif select_reference.size(0)>=num_queries:
-                select_reference=select_reference[:num_queries,:2]
-                key_pos_select=key_pos_select[:num_queries,:2]
-                lambda_q_select=lambda_q_select[:num_queries,:self.embed_dims]
-            #print("after",key_pos_select.size())
-            reference_selected[i]=select_reference
-            key_pos_selected[i]=key_pos_select
-            lambda_q_selected[i]=lambda_q_select
+        k=self.box_estimation(key_pos)
+        #k=k[...,:2]
+
+        #reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
+        #key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
+        #lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
+
+        def select(before_select ,selection_reference ,bs,num_q,dims):
+            selection=torch.empty(bs,num_q,dims,device=query_pos.device)
+            for i in range(bs):
+                selected=before_select[i][:][selection_reference[i][:,0]== torch.max(selection_reference[i][:,0])]
+                if selected.size(0)<num_q:
+                    selected = F.pad(selected, (0,0,0,num_q-selected.size(0)), "constant",0)
+                elif selected.size(0)>=num_q:
+                    selected=selected[:num_q,:dims]
+                selection[i]=selected
+            return selection
+        
+        reference_selected=select(reference_point_selection_choose,reference_point_selection_choose,
+                                  bs,num_queries,2)
+        key_pos_selected=select(key_pos_selection,reference_point_selection_choose,
+                                bs,num_queries,2)
+        lambda_q_selected=select(lambda_q,reference_point_selection_choose,
+                                 bs,num_queries,self.embed_dims)
+        k_selected=select(k,reference_point_selection_choose,
+                                 bs,num_queries,self.embed_dims)
 
         #Ps
         selected_reference_sigmoid=reference_selected.sigmoid()
@@ -160,7 +167,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         k=self.box_estimation(key_pos)
         pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         #print("k",k.size(),"pe_before",pe_before.size())
-        pe=coordinate_to_encoding(coord_tensor=k[...,:num_queries, :4]+pe_before)
+        pe=coordinate_to_encoding(coord_tensor=k_selected[...,:num_queries, :4]+pe_before)
         pe_sigmoid=pe.sigmoid()
         #pe: torch.Size([2, 300, 512])
         #print("pe",pe.size())
