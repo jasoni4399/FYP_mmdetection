@@ -114,6 +114,5 @@ docs/modelzoo_statistics.md
 mmdet/.mim
 
 # Pytorch
-*.pth
 *.py~
 *.sh~
