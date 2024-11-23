@@ -34,6 +34,8 @@ class ConditionalDETR_V2(DETR):
                  init_cfg: OptMultiConfig = None,
                  content_width: list=[0.4],
                  content_height: list=[0.4]) -> None:
+        self.content_width=content_width
+        self.content_height=content_height
         super().__init__(backbone=backbone,
                  neck=neck,
                  encoder=encoder,
@@ -45,8 +47,7 @@ class ConditionalDETR_V2(DETR):
                  test_cfg=test_cfg,
                  data_preprocessor=data_preprocessor,
                  init_cfg=init_cfg)
-        self.content_width=content_width
-        self.content_height=content_height
+        
 
     def _init_layers(self) -> None:
         """Initialize layers except for backbone, neck and bbox_head."""
