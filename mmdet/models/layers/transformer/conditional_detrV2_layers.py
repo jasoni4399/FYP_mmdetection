@@ -40,6 +40,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self._init_layers()
         self.content_width=content_width
         self.content_height=content_height
+        assert len(self.content_width) == len(self.content_height)
 
     def _init_layers(self) -> None:
         """Initialize decoder layers and other layers."""
@@ -161,11 +162,16 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #Cq initial by image content
         #query=self.content_query(reference_xy)
         #or
+        #content_w_h=torch.tensor([self.content_width,self.content_height],device=query_pos.device)
+        #content_w_h=content_w_h.unsqueeze(0).repeat(key_pos_selected[..., :2].size(0),key_pos_selected[..., :2].size(1),1)
         content_w_h=torch.tensor([self.content_width,self.content_height],device=query_pos.device)
+        content_w_h=content_w_h.permute(1,0)
         content_w_h=content_w_h.unsqueeze(0).repeat(key_pos_selected[..., :2].size(0),key_pos_selected[..., :2].size(1),1)
         
-        k=self.box_estimation(key_pos)
-        pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        key_pos_selected=key_pos_selected.repeat(1,1,len(self.content_width))
+        key_pos_selected=key_pos_selected.view(key_pos_selected.size(0),key_pos_selected.size(1)*len(self.content_width),key_pos_selected.size(2)//len(self.content_width))
+
+        pe_before=inverse_sigmoid(torch.cat([key_pos_selected[...,:num_queries,:], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         #print("k",k.size(),"pe_before",pe_before.size())
         pe=coordinate_to_encoding(coord_tensor=k_selected[...,:num_queries, :4]+pe_before)
         pe_sigmoid=pe.sigmoid()
@@ -176,9 +182,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                pos_transformation = 1
+                pos_transformation = self.query_scale(lambda_q_selected)
             else:
-                pos_transformation = self.query_scale(lambda_q_selected) #lambda_q
+                pos_transformation = self.query_scale(query) #lambda_q
             # get sine embedding for the query reference 
             ref_sine_embed = coordinate_to_encoding(coord_tensor=selected_reference_xy)#Ps
             #print("ref_sine_embed",ref_sine_embed.size())
