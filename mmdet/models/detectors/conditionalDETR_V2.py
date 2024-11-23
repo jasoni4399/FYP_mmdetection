@@ -53,7 +53,7 @@ class ConditionalDETR_V2(DETR):
         self.positional_encoding = SinePositionalEncoding(
             **self.positional_encoding)
         self.encoder = V2.ConditionalDetrTransformerV2Encoder(**self.encoder)
-        self.decoder = V2.ConditionalDetrTransformerV2Decoder(**self.decoder)
+        self.decoder = V2.ConditionalDetrTransformerV2Decoder(**self.decoder,content_width=self.content_width,content_height=self.content_height)
         self.embed_dims = self.encoder.embed_dims
         # NOTE The embed_dims is typically passed from the inside out.
         # For example in DETR, The embed_dims is passed as
