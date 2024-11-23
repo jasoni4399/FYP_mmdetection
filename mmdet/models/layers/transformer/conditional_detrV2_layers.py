@@ -172,9 +172,12 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         key_pos_selected=key_pos_selected.repeat(1,1,len(self.content_width))
         key_pos_selected=key_pos_selected.view(key_pos_selected.size(0),key_pos_selected.size(1)*len(self.content_width),key_pos_selected.size(2)//len(self.content_width))
 
-        pe_before=inverse_sigmoid(torch.cat([key_pos_selected[...,:num_queries,:], content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
+        k_selected=k_selected.repeat(1,1,len(self.content_width))
+        k_selected=k_selected.view(k_selected.size(0),k_selected.size(1)*len(self.content_width),k_selected.size(2)//len(self.content_width))
+
+        pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         #print("k",k.size(),"pe_before",pe_before.size())
-        pe=coordinate_to_encoding(coord_tensor=k_selected[...,:num_queries, :4]+pe_before)
+        pe=coordinate_to_encoding(coord_tensor=k_selected[...,:num_queries, :4]+pe_before[...,:num_queries,:])
         pe_sigmoid=pe.sigmoid()
         #pe: torch.Size([2, 300, 512])
         #print("pe",pe.size())
