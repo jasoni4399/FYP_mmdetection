@@ -32,8 +32,8 @@ class ConditionalDETR_V2(DETR):
                  test_cfg: OptConfigType = None,
                  data_preprocessor: OptConfigType = None,
                  init_cfg: OptMultiConfig = None,
-                 content_width: OptMultiConfig = None,
-                 content_height: OptMultiConfig = None) -> None:
+                 content_width: list=[0.4],
+                 content_height: list=[0.4]) -> None:
         super().__init__(backbone=backbone,
                  neck=neck,
                  encoder=encoder,
