@@ -30,8 +30,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                  return_intermediate: bool = True,
                  init_cfg: Union[dict, ConfigDict] = None,
                  positional_encoding: OptConfigType = None,
-                 content_width: OptConfigType = list(type=float),
-                 content_height: OptConfigType = list(type=float)) -> None:
+                 content_width: OptConfigType = list,
+                 content_height: OptConfigType = list) -> None:
         super().__init__(init_cfg=init_cfg,
                          layer_cfg = layer_cfg,
                          num_layers = num_layers,
