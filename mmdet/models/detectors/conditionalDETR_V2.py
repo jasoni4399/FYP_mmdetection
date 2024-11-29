@@ -53,7 +53,7 @@ class ConditionalDETR_V2(DETR):
         """Initialize layers except for backbone, neck and bbox_head."""
         self.positional_encoding = SinePositionalEncoding(
             **self.positional_encoding)
-        self.encoder = V2.ConditionalDetrTransformerV2Encoder(**self.encoder)
+        self.encoder = V2.ConditionalDetrTransformerV2Encoder(**self.encoder,content_width=self.content_width,content_height=self.content_height)
         self.decoder = V2.ConditionalDetrTransformerV2Decoder(**self.decoder,content_width=self.content_width,content_height=self.content_height)
         self.embed_dims = self.encoder.embed_dims
         # NOTE The embed_dims is typically passed from the inside out.
@@ -171,6 +171,34 @@ class ConditionalDETR_V2(DETR):
 
         # prepare transformer_inputs_dict
         encoder_inputs_dict = dict(
-            feat=feat, feat_mask=masks, feat_pos=pos_embed)
+            feat=feat, feat_mask=masks, feat_pos=pos_embed,feats_height=feats_height, feats_width=feats_width)
         decoder_inputs_dict = dict(memory_mask=masks, memory_pos=pos_embed)
         return encoder_inputs_dict, decoder_inputs_dict
+
+    def forward_encoder(self, feat: Tensor, feat_mask: Tensor,
+                        feat_pos: Tensor,
+                        feats_height: int, feats_width: int) -> Dict:
+        """Forward with Transformer encoder.
+
+        The forward procedure of the transformer is defined as:
+        'pre_transformer' -> 'encoder' -> 'pre_decoder' -> 'decoder'
+        More details can be found at `TransformerDetector.forward_transformer`
+        in `mmdet/detector/base_detr.py`.
+
+        Args:
+            feat (Tensor): Sequential features, has shape (bs, num_feat_points,
+                dim).
+            feat_mask (Tensor): ByteTensor, the padding mask of the features,
+                has shape (bs, num_feat_points).
+            feat_pos (Tensor): The positional embeddings of the features, has
+                shape (bs, num_feat_points, dim).
+
+        Returns:
+            dict: The dictionary of encoder outputs, which includes the
+            `memory` of the encoder output.
+        """
+        memory = self.encoder(
+            query=feat, query_pos=feat_pos,
+            key_padding_mask=feat_mask,feats_height=feats_height, feats_width=feats_width)  # for self_attn
+        encoder_outputs_dict = dict(memory=memory)
+        return encoder_outputs_dict

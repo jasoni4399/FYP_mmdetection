@@ -231,8 +231,8 @@ class ConditionalDetrTransformerV2Encoder(BaseModule):
                  layer_cfg: ConfigType,
                  num_cp: int = -1,
                  init_cfg: OptConfigType = None,
-                 content_width: OptConfigType = None,
-                 content_height: OptConfigType = None) -> None:
+                 content_width: list=[0.4],
+                 content_height: list=[0.4]) -> None:
 
         super().__init__(init_cfg=init_cfg)
         self.num_layers = num_layers
@@ -246,7 +246,7 @@ class ConditionalDetrTransformerV2Encoder(BaseModule):
     def _init_layers(self) -> None:
         """Initialize encoder layers."""
         self.layers = ModuleList([
-            ConditionalDetrTransformerV2EncoderLayer(**self.layer_cfg)
+            ConditionalDetrTransformerV2EncoderLayer(**self.layer_cfg,content_width=self.content_width,content_height=self.content_height)
             for _ in range(self.num_layers)
         ])
 
@@ -384,8 +384,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
                      act_cfg=dict(type='ReLU', inplace=True)),
                  norm_cfg: OptConfigType = dict(type='LN'),
                  init_cfg: OptConfigType = None,
-                 content_width: OptConfigType = None,
-                 content_height: OptConfigType = None) -> None:
+                 content_width: list=[0.4],
+                 content_height: list=[0.4]) -> None:
 
         super().__init__(init_cfg=init_cfg)
 
@@ -406,6 +406,7 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
     def _init_layers(self) -> None:
         """Initialize self-attention, FFN, and normalization."""
         self.self_attn = MultiheadAttention(**self.self_attn_cfg)
+        #self.self_attn = HVAttention(**self.self_attn_cfg,content_width=self.content_width,content_height=self.content_height)
         self.embed_dims = self.self_attn.embed_dims
         self.ffn = FFN(**self.ffn_cfg)
         norms_list = [
@@ -474,19 +475,24 @@ class HVAttention(BaseModule):
                  keep_query_pos: bool = False,
                  batch_first: bool = True,
                  init_cfg: OptMultiConfig = None,
-                 content_width: OptConfigType = None,
-                 content_height: OptConfigType = None):
+                 content_width: list=[0.4],
+                 content_height: list=[0.4],
+                 feats_height=None, feats_width=None):
         super().__init__(init_cfg=init_cfg)
 
         assert batch_first is True, 'Set `batch_first`\
         to False is NOT supported in ConditionalAttention. \
         First dimension of all DETRs in mmdet is `batch`, \
         please set `batch_first` to True.'
+        assert feats_height is not None
+        assert feats_width is not None
 
         self.cross_attn = cross_attn
         self.keep_query_pos = keep_query_pos
         self.embed_dims = embed_dims
         self.num_heads = num_heads
+        self.feats_height=feats_height
+        self.feats_width=feats_width
         self.attn_drop = Dropout(attn_drop)
         self.proj_drop = Dropout(proj_drop)
 
@@ -597,18 +603,19 @@ class HVAttention(BaseModule):
         proj_query = q.contiguous().view(bs, tgt_len, self.num_heads,
                                 head_dims).permute(0, 2, 1, 3).flatten(0, 1)
         if k is not None:
-            proj_key = k.contiguous().view(bs, src_len, self.num_heads,
-                                    head_dims).permute(0, 2, 1,
-                                                       3).flatten(0, 1)
+            proj_key = k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+                                    head_dims).permute(0, 3, 1,2,
+                                                       4).flatten(0, 1)
         if v is not None:
             proj_value = v.contiguous().view(bs, src_len, self.num_heads,
                                     v_head_dims).permute(0, 2, 1,
                                                          3).flatten(0, 1)
-            proj_value_H = v.permute(0,3,1,2).contiguous().view(bs, src_len, self.num_heads,
-                                    head_dims)
-            proj_value_W = v.permute(0,2,1,3).contiguous().view(bs, src_len, self.num_heads,
-                                    head_dims)
+            #proj_value_H = v.permute(0,3,1,2).contiguous().view(bs, src_len, self.num_heads,
+            #                        head_dims)
+            #proj_value_W = v.permute(0,2,1,3).contiguous().view(bs, src_len, self.num_heads,
+            #                        head_dims)
 
+        #None
         if key_padding_mask is not None:
             assert key_padding_mask.size(0) == bs
             assert key_padding_mask.size(1) == src_len
@@ -617,13 +624,13 @@ class HVAttention(BaseModule):
         assert list(attn_output_weights.size()) == [
             bs * self.num_heads, tgt_len, src_len
         ]
-
+        #None
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 attn_output_weights.masked_fill_(attn_mask, float('-inf'))
             else:
                 attn_output_weights += attn_mask
-
+        #None
         if key_padding_mask is not None:
             attn_output_weights = attn_output_weights.view(
                 bs, self.num_heads, tgt_len, src_len)
@@ -716,58 +723,27 @@ class HVAttention(BaseModule):
             [bs, num_queries, embed_dims].
         """
 
-        if self.cross_attn:
-            q_content = self.qcontent_proj(query)
-            k_content = self.kcontent_proj(key)
-            v = self.v_proj(key)
+        #q = torch.cat([q, query_sine_embed], dim=3).view(bs, nq, 2 * c)
+        #k = torch.cat([k, k_pos], dim=3).view(bs, hw, 2 * c)
 
-            bs, nq, c = q_content.size()
-            _, hw, _ = k_content.size()
+        #self attention for encoder
 
-            k_pos = self.kpos_proj(key_pos)
-            if is_first or self.keep_query_pos:
-                q_pos = self.qpos_proj(query_pos)
-                q = q_content + q_pos
-                k = k_content + k_pos
-            else:
-                q = q_content
-                k = k_content
-            q = q.view(bs, nq, self.num_heads, c // self.num_heads)
-            query_sine_embed = self.qpos_sine_proj(ref_sine_embed)
-            query_sine_embed = query_sine_embed.view(bs, nq, self.num_heads,
-                                                     c // self.num_heads)
-            q = torch.cat([q, query_sine_embed], dim=3).view(bs, nq, 2 * c)
-            k = k.view(bs, hw, self.num_heads, c // self.num_heads)
-            k_pos = k_pos.view(bs, hw, self.num_heads, c // self.num_heads)
-            k = torch.cat([k, k_pos], dim=3).view(bs, hw, 2 * c)
+        #b,_,H,W=query.size()
+        q_content = self.qcontent_proj(query)
+        q_pos = self.qpos_proj(query_pos)
+        k_content = self.kcontent_proj(query)
+        k_pos = self.kpos_proj(query_pos)
+        v = self.v_proj(query)
+        q = q_content if q_pos is None else q_content + q_pos
+        k = k_content if k_pos is None else k_content + k_pos
 
-            ca_output = self.forward_attn(
-                query=q,
-                key=k,
-                value=v,
-                attn_mask=attn_mask,
-                key_padding_mask=key_padding_mask)[0]
-            query = query + self.proj_drop(ca_output)
-        else:
-
-            #self attention for encoder
-
-            #b,_,H,W=query.size()
-            q_content = self.qcontent_proj(query)
-            q_pos = self.qpos_proj(query_pos)
-            k_content = self.kcontent_proj(query)
-            k_pos = self.kpos_proj(query_pos)
-            v = self.v_proj(query)
-            q = q_content if q_pos is None else q_content + q_pos
-            k = k_content if k_pos is None else k_content + k_pos
-
-            sa_output = self.forward_attn(
-                query=q,
-                key=k,
-                value=v,
-                attn_mask=attn_mask,
-                key_padding_mask=key_padding_mask)[0]
-            
-            query = query + self.proj_drop(sa_output)
+        sa_output = self.forward_attn(
+            query=q,
+            key=k,
+            value=v,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask)[0]
+        
+        query = query + self.proj_drop(sa_output)
 
         return query
