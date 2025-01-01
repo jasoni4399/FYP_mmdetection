@@ -37,12 +37,13 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                          num_layers = num_layers,
                          post_norm_cfg = post_norm_cfg,
                          return_intermediate = return_intermediate)
-        self._init_layers()
+        
         self.content_width=content_width
         self.content_height=content_height
         print(self.content_width,self.content_height)
         assert len(self.content_width) == len(self.content_height)
-
+        self._init_layers()
+        
     def _init_layers(self) -> None:
         """Initialize decoder layers and other layers."""
         self.layers = ModuleList([
@@ -239,9 +240,9 @@ class ConditionalDetrTransformerV2Encoder(BaseModule):
         self.layer_cfg = layer_cfg
         self.num_cp = num_cp
         assert self.num_cp <= self.num_layers
-        self._init_layers()
         self.content_width=content_width
         self.content_height=content_height
+        self._init_layers()
 
     def _init_layers(self) -> None:
         """Initialize encoder layers."""
@@ -384,8 +385,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
                      act_cfg=dict(type='ReLU', inplace=True)),
                  norm_cfg: OptConfigType = dict(type='LN'),
                  init_cfg: OptConfigType = None,
-                 content_width: list=[0.4],
-                 content_height: list=[0.4]) -> None:
+                 content_width: list=[0.1,0.2,0.4],
+                 content_height: list=[0.1,0.2,0.4]) -> None:
 
         super().__init__(init_cfg=init_cfg)
 
