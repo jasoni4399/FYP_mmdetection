@@ -617,15 +617,15 @@ class HVAttention(BaseModule):
             else:
                 attn_output_weights += attn_mask
         #None
-        if key_padding_mask is not None:
-            attn_output_weights = attn_output_weights.view(
-                bs, self.num_heads, tgt_len, src_len)
-            attn_output_weights = attn_output_weights.masked_fill(
-                key_padding_mask.unsqueeze(1).unsqueeze(2),
-                float('-inf'),
-            )
-            attn_output_weights = attn_output_weights.view(
-                bs * self.num_heads, tgt_len, src_len)
+        #if key_padding_mask is not None:
+        #    attn_output_weights = attn_output_weights.view(
+        #        bs, self.num_heads, tgt_len, src_len)
+        #    attn_output_weights = attn_output_weights.masked_fill(
+        #        key_padding_mask.unsqueeze(1).unsqueeze(2),
+        #        float('-inf'),
+        #    )
+        #    attn_output_weights = attn_output_weights.view(
+        #        bs * self.num_heads, tgt_len, src_len)
         
         q=q.contiguous().view(bs, tgt_len, self.num_heads,
                                 head_dims).permute(0, 2, 1, 3).flatten(0, 1)
