@@ -417,8 +417,7 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
         self.norms = ModuleList(norms_list)
 
     def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor,
-                feats_height=None, feats_width=None, **kwargs) -> Tensor:
+                key_padding_mask: Tensor,**kwargs) -> Tensor:
         """Forward function of an encoder layer.
 
         Args:
@@ -439,7 +438,6 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
             key_padding_mask=key_padding_mask,
             content_width=self.content_width,
             content_height=self.content_height,
-            feats_height=feats_height, feats_width=feats_width,
             **kwargs)
         query = self.norms[0](query)
         query = self.ffn(query)
