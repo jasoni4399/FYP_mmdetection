@@ -507,7 +507,7 @@ class HVAttention(BaseModule):
                      value: Tensor,
                      attn_mask: Tensor = None,
                      key_padding_mask: Tensor = None,
-                     feats_height=None, feats_width=None) -> Tuple[Tensor]:
+                     feats_height=None, feats_width=None,**kwargs) -> Tuple[Tensor]:
         """Forward process for `ConditionalAttention`.
 
         Args:
@@ -699,7 +699,7 @@ class HVAttention(BaseModule):
                 attn_mask: Tensor = None,
                 key_padding_mask: Tensor = None,
                 is_first: bool = False,
-                feats_height=None, feats_width=None) -> Tensor:
+                feats_height=None, feats_width=None,**kwargs) -> Tensor:
         """Forward function for `ConditionalAttention`.
         Args:
             query (Tensor): The input query with shape [bs, num_queries,
@@ -764,7 +764,7 @@ class HVAttention(BaseModule):
             value=value,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
-            feats_height=feats_height, feats_width=feats_width)[0]
+            feats_height=feats_height, feats_width=feats_width,**kwargs)[0]
     
 
         query = query + self.proj_drop(sa_output)
