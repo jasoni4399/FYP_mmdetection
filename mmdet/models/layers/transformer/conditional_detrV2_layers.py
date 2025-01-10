@@ -743,8 +743,6 @@ class HVAttention(BaseModule):
             key = query
         if value is None:
             value = key
-        if identity is None:
-            identity = query
         if key_pos is None:
             if query_pos is not None:
                 # use query_pos if key_pos is not available
