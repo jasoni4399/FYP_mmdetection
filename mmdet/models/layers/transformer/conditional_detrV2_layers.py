@@ -497,7 +497,7 @@ class HVAttention(BaseModule):
     def _init_layers(self):
         """Initialize layers for qkv projection."""
         embed_dims = self.embed_dims
-        self.out_proj = Linear(embed_dims, embed_dims)
+        self.out_proj = Linear(embed_dims*2, embed_dims)
 
         nn.init.constant_(self.out_proj.bias, 0.)
 
