@@ -497,13 +497,6 @@ class HVAttention(BaseModule):
     def _init_layers(self):
         """Initialize layers for qkv projection."""
         embed_dims = self.embed_dims
-        self.qcontent_proj = Linear(embed_dims, embed_dims)
-        self.qpos_proj = Linear(embed_dims, embed_dims)
-        self.kcontent_proj = Linear(embed_dims, embed_dims)
-        self.kpos_proj = Linear(embed_dims, embed_dims)
-        self.v_proj = Linear(embed_dims, embed_dims)
-        if self.cross_attn:
-            self.qpos_sine_proj = Linear(embed_dims, embed_dims)
         self.out_proj = Linear(embed_dims, embed_dims)
 
         nn.init.constant_(self.out_proj.bias, 0.)
@@ -699,6 +692,7 @@ class HVAttention(BaseModule):
     def forward(self,
                 query: Tensor,
                 key: Tensor,
+                value=Tensor,
                 query_pos: Tensor = None,
                 ref_sine_embed: Tensor = None,
                 key_pos: Tensor = None,
@@ -745,22 +739,34 @@ class HVAttention(BaseModule):
         #self attention for encoder
 
         #b,_,H,W=query.size()
-        q_content = self.qcontent_proj(query)
-        q_pos = self.qpos_proj(query_pos)
-        k_content = self.kcontent_proj(query)
-        k_pos = self.kpos_proj(query_pos)
-        v = self.v_proj(query)
-        q = q_content if q_pos is None else q_content + q_pos
-        k = k_content if k_pos is None else k_content + k_pos
+        if key is None:
+            key = query
+        if value is None:
+            value = key
+        if identity is None:
+            identity = query
+        if key_pos is None:
+            if query_pos is not None:
+                # use query_pos if key_pos is not available
+                if query_pos.shape == key.shape:
+                    key_pos = query_pos
+                else:
+                    warnings.warn(f'position encoding of key is'
+                                  f'missing in {self.__class__.__name__}.')
+        if query_pos is not None:
+            query = query + query_pos
+        if key_pos is not None:
+            key = key + key_pos
 
         sa_output = self.forward_attn(
-            query=q,
-            key=k,
-            value=v,
+            query=query,
+            key=key,
+            value=value,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
             feats_height=feats_height, feats_width=feats_width)[0]
-        
+    
+
         query = query + self.proj_drop(sa_output)
 
         return query
