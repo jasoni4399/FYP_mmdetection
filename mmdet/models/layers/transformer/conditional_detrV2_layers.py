@@ -417,7 +417,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
         self.norms = ModuleList(norms_list)
 
     def forward(self, query: Tensor, query_pos: Tensor,
-                key_padding_mask: Tensor, **kwargs) -> Tensor:
+                key_padding_mask: Tensor,
+                feats_height=None, feats_width=None, **kwargs) -> Tensor:
         """Forward function of an encoder layer.
 
         Args:
@@ -438,6 +439,7 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
             key_padding_mask=key_padding_mask,
             content_width=self.content_width,
             content_height=self.content_height,
+            feats_height=feats_height, feats_width=feats_width,
             **kwargs)
         query = self.norms[0](query)
         query = self.ffn(query)
@@ -476,25 +478,18 @@ class HVAttention(BaseModule):
                  cross_attn: bool = False,
                  keep_query_pos: bool = False,
                  batch_first: bool = True,
-                 init_cfg: OptMultiConfig = None,
-                 content_width: list=[0.4],
-                 content_height: list=[0.4],
-                 feats_height=None, feats_width=None):
+                 init_cfg: OptMultiConfig = None):
         super().__init__(init_cfg=init_cfg)
 
         assert batch_first is True, 'Set `batch_first`\
         to False is NOT supported in ConditionalAttention. \
         First dimension of all DETRs in mmdet is `batch`, \
         please set `batch_first` to True.'
-        assert feats_height is not None
-        assert feats_width is not None
 
         self.cross_attn = cross_attn
         self.keep_query_pos = keep_query_pos
         self.embed_dims = embed_dims
         self.num_heads = num_heads
-        self.feats_height=feats_height
-        self.feats_width=feats_width
         self.attn_drop_H = Dropout(attn_drop_H)
         self.attn_drop_W = Dropout(attn_drop_W)
         self.proj_drop = Dropout(proj_drop)
@@ -520,7 +515,8 @@ class HVAttention(BaseModule):
                      key: Tensor,
                      value: Tensor,
                      attn_mask: Tensor = None,
-                     key_padding_mask: Tensor = None) -> Tuple[Tensor]:
+                     key_padding_mask: Tensor = None,
+                     feats_height=None, feats_width=None) -> Tuple[Tensor]:
         """Forward process for `ConditionalAttention`.
 
         Args:
@@ -546,6 +542,10 @@ class HVAttention(BaseModule):
             is target sequence length, and :math:`S` is the source sequence
             length.
         """
+
+        
+        assert feats_height is not None
+        assert feats_width is not None
                #src_len       #
         assert key.size(1) == value.size(1), \
             f'{"key, value must have the same sequence length"}'
@@ -639,15 +639,15 @@ class HVAttention(BaseModule):
         q=q.contiguous().view(bs, tgt_len, self.num_heads,
                                 head_dims).permute(0, 2, 1, 3).flatten(0, 1)
         #print("q",q.size())
-        k_H=k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+        k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
-        k_H=torch.sum(k_H, dim=2)/self.feats_width
-        k_W=k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+        k_H=torch.sum(k_H, dim=2)/feats_width
+        k_W=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
-        k_W=torch.sum(k_W, dim=2)/self.feats_height
-        v = v.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+        k_W=torch.sum(k_W, dim=2)/feats_height
+        v = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             v_head_dims).permute(0, 3, 1, 2, 4
                                                             ).flatten(0, 1)#.view(bs*num_heads,feats_height,v_head_dims*feats_width)
 
@@ -656,10 +656,10 @@ class HVAttention(BaseModule):
         attn_output_weights_W = torch.bmm(q, k_W.transpose(1, 2))
 
         assert list(attn_output_weights_H.size()) == [
-                    bs * self.num_heads, tgt_len, self.feats_height
+                    bs * self.num_heads, tgt_len, feats_height
                 ]
         assert list(attn_output_weights_W.size()) == [
-                    bs * self.num_heads, tgt_len, self.feats_width
+                    bs * self.num_heads, tgt_len, feats_width
                 ]
 
         attn_output_weights_H=F.softmax(
@@ -689,17 +689,11 @@ class HVAttention(BaseModule):
         attn_output = attn_output.view(bs, self.num_heads, tgt_len,
                                             attn_output.size(2)).permute(0, 2,
                                                                     1,3).flatten(2)
-        #attn_output = self.out_proj(attn_output)
+        attn_output = self.out_proj(attn_output)
         #print(attn_output.size())
         attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
                                                 dim=2).view(bs,self.num_heads,
-                                                            tgt_len, self.feats_height+self.feats_width)
-        attn_output = self.out_proj(attn_output)
-
-        # average attention weights over heads
-        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
-                                         dim=2).view(bs, self.num_heads,
-                                                       tgt_len, self.feats_height+self.feats_width)
+                                                            tgt_len, feats_height+feats_width)
         
         #second ouput never used
         return attn_output, (attn_output_weights.sum(dim=1)) / self.num_heads
@@ -712,7 +706,8 @@ class HVAttention(BaseModule):
                 key_pos: Tensor = None,
                 attn_mask: Tensor = None,
                 key_padding_mask: Tensor = None,
-                is_first: bool = False) -> Tensor:
+                is_first: bool = False,
+                feats_height=None, feats_width=None) -> Tensor:
         """Forward function for `ConditionalAttention`.
         Args:
             query (Tensor): The input query with shape [bs, num_queries,
@@ -765,7 +760,8 @@ class HVAttention(BaseModule):
             key=k,
             value=v,
             attn_mask=attn_mask,
-            key_padding_mask=key_padding_mask)[0]
+            key_padding_mask=key_padding_mask,
+            feats_height=feats_height, feats_width=feats_width)[0]
         
         query = query + self.proj_drop(sa_output)
 
