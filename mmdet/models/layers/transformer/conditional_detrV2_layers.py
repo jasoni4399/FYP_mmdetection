@@ -376,7 +376,7 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
 
     def __init__(self,
                  self_attn_cfg: OptConfigType = dict(
-                     embed_dims=256, num_heads=8, dropout=0.0),
+                     embed_dims=256, num_heads=8, attn_drop_H = 0.1, attn_drop_W = 0.1,),
                  ffn_cfg: OptConfigType = dict(
                      embed_dims=256,
                      feedforward_channels=1024,
