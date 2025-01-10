@@ -390,11 +390,11 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
 
         super().__init__(init_cfg=init_cfg)
 
-        self.self_attn_cfg = self_attn_cfg
-        if 'batch_first' not in self.self_attn_cfg:
-            self.self_attn_cfg['batch_first'] = True
+        self.HV_attn_cfg = self_attn_cfg
+        if 'batch_first' not in self.HV_attn_cfg:
+            self.HV_attn_cfg['batch_first'] = True
         else:
-            assert self.self_attn_cfg['batch_first'] is True, 'First \
+            assert self.HV_attn_cfg['batch_first'] is True, 'First \
             dimension of all DETRs in mmdet is `batch`, \
             please set `batch_first` flag.'
 
@@ -406,8 +406,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
 
     def _init_layers(self) -> None:
         """Initialize self-attention, FFN, and normalization."""
-        self.self_attn = MultiheadAttention(**self.self_attn_cfg)
-        #self.self_attn = HVAttention(**self.self_attn_cfg,content_width=self.content_width,content_height=self.content_height)
+        #self.self_attn = MultiheadAttention(**self.self_attn_cfg)
+        self.self_attn = HVAttention(**self.HV_attn_cfg,content_width=self.content_width,content_height=self.content_height)
         self.embed_dims = self.self_attn.embed_dims
         self.ffn = FFN(**self.ffn_cfg)
         norms_list = [
@@ -470,7 +470,8 @@ class HVAttention(BaseModule):
     def __init__(self,
                  embed_dims: int,
                  num_heads: int,
-                 attn_drop: float = 0.,
+                 attn_drop_H: float = 0.,
+                 attn_drop_W: float = 0.,
                  proj_drop: float = 0.,
                  cross_attn: bool = False,
                  keep_query_pos: bool = False,
@@ -494,7 +495,8 @@ class HVAttention(BaseModule):
         self.num_heads = num_heads
         self.feats_height=feats_height
         self.feats_width=feats_width
-        self.attn_drop = Dropout(attn_drop)
+        self.attn_drop_H = Dropout(attn_drop_H)
+        self.attn_drop_W = Dropout(attn_drop_W)
         self.proj_drop = Dropout(proj_drop)
 
         self._init_layers()
@@ -544,10 +546,13 @@ class HVAttention(BaseModule):
             is target sequence length, and :math:`S` is the source sequence
             length.
         """
+               #src_len       #
         assert key.size(1) == value.size(1), \
             f'{"key, value must have the same sequence length"}'
+               #bs 
         assert query.size(0) == key.size(0) == value.size(0), \
             f'{"batch size must be equal for query, key, value"}'
+               #hidden_dims
         assert query.size(2) == key.size(2), \
             f'{"q_dims, k_dims must be equal"}'
         assert value.size(2) == self.embed_dims, \
@@ -555,7 +560,10 @@ class HVAttention(BaseModule):
         #2, 300    , 256
         bs, tgt_len, hidden_dims = query.size()
         _, src_len, _ = key.size()
+        #e.g. 256//8=32
         head_dims = hidden_dims // self.num_heads
+        #embed_dims=256, num_heads=8, 
+        #v_head_dims=32
         v_head_dims = self.embed_dims // self.num_heads
         assert head_dims * self.num_heads == hidden_dims, \
             f'{"hidden_dims must be divisible by num_heads"}'
@@ -600,31 +608,17 @@ class HVAttention(BaseModule):
         #None
         if key_padding_mask is not None and key_padding_mask.dtype == int:
             key_padding_mask = key_padding_mask.to(torch.bool)
-
-        proj_query = q.contiguous().view(bs, tgt_len, self.num_heads,
-                                head_dims).permute(0, 2, 1, 3).flatten(0, 1)
-        if k is not None:
-            proj_key = k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
-                                    head_dims).permute(0, 3, 1,2,
-                                                       4).flatten(0, 1)
-        if v is not None:
-            proj_value = v.contiguous().view(bs, src_len, self.num_heads,
-                                    v_head_dims).permute(0, 2, 1,
-                                                         3).flatten(0, 1)
-            #proj_value_H = v.permute(0,3,1,2).contiguous().view(bs, src_len, self.num_heads,
-            #                        head_dims)
-            #proj_value_W = v.permute(0,2,1,3).contiguous().view(bs, src_len, self.num_heads,
-            #                        head_dims)
-
+                                         #2 , 300, 8, 32
+       
         #None
         if key_padding_mask is not None:
             assert key_padding_mask.size(0) == bs
             assert key_padding_mask.size(1) == src_len
         # Q mul K.transpose
         #attn_output_weights = torch.bmm(q, k.transpose(1, 2)) 
-        assert list(attn_output_weights.size()) == [
-            bs * self.num_heads, tgt_len, src_len
-        ]
+        #assert list(attn_output_weights.size()) == [
+        #    bs * self.num_heads, tgt_len, src_len
+        #]
         #None
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
@@ -642,44 +636,72 @@ class HVAttention(BaseModule):
             attn_output_weights = attn_output_weights.view(
                 bs * self.num_heads, tgt_len, src_len)
         
-        def INF(B,H,W):
-            return -torch.diag(torch.tensor(float("inf")).repeat(H),0).unsqueeze(0).repeat(B*W,1,1)
-        proj_query_H = proj_query.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height).permute(0, 2, 1)
-        proj_query_W = proj_query.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width).permute(0, 2, 1)
-        print(proj_query_H.size(),proj_query_W)
-        proj_key_H=proj_key.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height).sum(dim=0)/width
-        proj_key_H=proj_key_H.expand(m_batchsize*width,-1,height)
-        proj_key_W=proj_key.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width).sum(dim=1)/height
-        proj_key_W=proj_key_W.unsqueeze(-1).repeat(1,1,_).permute(0, 2, 1)
-        #k=torch.cat((xj,xi),dim=2)
-        #proj_key_H = proj_query.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height).flatten(0,1)
-        #proj_key_W = proj_query.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width).flatten(0,1)
-        #print(proj_key_H,proj_key_W)
+        q=q.contiguous().view(bs, tgt_len, self.num_heads,
+                                head_dims).permute(0, 2, 1, 3).flatten(0, 1)
+        #print("q",q.size())
+        k_H=k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+                                            head_dims).permute(0, 3, 1, 2,
+                                                            4).flatten(0, 1)
+        k_H=torch.sum(k_H, dim=2)/self.feats_width
+        k_W=k.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+                                            head_dims).permute(0, 3, 2, 1,
+                                                            4).flatten(0, 1)
+        k_W=torch.sum(k_W, dim=2)/self.feats_height
+        v = v.contiguous().view(bs, self.feats_height,self.feats_width, self.num_heads,
+                                            v_head_dims).permute(0, 3, 1, 2, 4
+                                                            ).flatten(0, 1)#.view(bs*num_heads,feats_height,v_head_dims*feats_width)
 
-        proj_value_H = proj_value.permute(0,3,1,2).contiguous().view(m_batchsize*width,-1,height)
-        proj_value_W = proj_value.permute(0,2,1,3).contiguous().view(m_batchsize*height,-1,width)
-        energy_H = (torch.matmul(proj_query_H, proj_key_H)+INF(m_batchsize, height, width)).view(m_batchsize,width,height,height).permute(0,2,1,3)
-        energy_W = torch.matmul(proj_query_W, proj_key_W).view(m_batchsize,height,width,width).permute(0,2,1,3)
-        from torch.nn import Softmax
-        concate = Softmax(dim=3)(torch.cat([energy_H, energy_W], 3))
-        att_H = concate[:,:,:,0:height].permute(0,2,1,3).contiguous().view(m_batchsize*width,height,height)
-        att_W = concate[:,:,:,height:height+width].contiguous().view(m_batchsize*height,width,width)
-        print(att_H)
-        print(att_W)
-        out_H = torch.bmm(proj_value_H, att_H.permute(0, 2, 1)).view(m_batchsize,width,-1,height).permute(0,2,3,1)
-        out_W = torch.bmm(proj_value_W, att_W.permute(0, 2, 1)).view(m_batchsize,height,-1,width).permute(0,2,1,3)
-        print(out_H,out_W)
-        out=torch.cat((out_H,out_W),dim=2)
-       
+        #print("v",v.size())
+        attn_output_weights_H = torch.bmm(q, k_H.transpose(1, 2))
+        attn_output_weights_W = torch.bmm(q, k_W.transpose(1, 2))
+
+        assert list(attn_output_weights_H.size()) == [
+                    bs * self.num_heads, tgt_len, self.feats_height
+                ]
+        assert list(attn_output_weights_W.size()) == [
+                    bs * self.num_heads, tgt_len, self.feats_width
+                ]
+
+        attn_output_weights_H=F.softmax(
+            attn_output_weights_H -
+            attn_output_weights_H.max(dim=-1,keepdim=True)[0],
+            dim=-1)
+        attn_output_weights_H=self.attn_drop_H(attn_output_weights_H)
+        attn_output_weights_W=F.softmax(
+            attn_output_weights_W -
+            attn_output_weights_W.max(dim=-1,keepdim=True)[0],
+            dim=-1)
+        attn_output_weights_W=self.attn_drop_W(attn_output_weights_W)
+        #print("attn_output_weights_H")
+        #print(attn_output_weights_H.size())
+        #print("attn_output_weights_W")
+        #print(attn_output_weights_W.size())
+
+        #attn_output_H = torch.bmm(attn_output_weights_H, v_H)
+        #attn_output_W = torch.bmm(attn_output_weights_W, v_W)
+
+        attn_output_H = torch.einsum('bth,bhwv->btv', attn_output_weights_H, v)
+        attn_output_W = torch.einsum('btw,bhwv->btv', attn_output_weights_W, v)
+        #print(attn_output_H.size())
+        #print(attn_output_W.size())
+        attn_output = torch.cat((attn_output_H,attn_output_W), dim=-1)
+        #print(attn_output.size())
         attn_output = attn_output.view(bs, self.num_heads, tgt_len,
-                                       v_head_dims).permute(0, 2, 1,
-                                                            3).flatten(2)
+                                            attn_output.size(2)).permute(0, 2,
+                                                                    1,3).flatten(2)
+        #attn_output = self.out_proj(attn_output)
+        #print(attn_output.size())
+        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
+                                                dim=2).view(bs,self.num_heads,
+                                                            tgt_len, self.feats_height+self.feats_width)
         attn_output = self.out_proj(attn_output)
 
         # average attention weights over heads
-        attn_output_weights = attn_output_weights.view(bs, self.num_heads,
-                                                       tgt_len, src_len)
+        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
+                                         dim=2).view(bs, self.num_heads,
+                                                       tgt_len, self.feats_height+self.feats_width)
         
+        #second ouput never used
         return attn_output, (attn_output_weights.sum(dim=1)) / self.num_heads
 
     def forward(self,

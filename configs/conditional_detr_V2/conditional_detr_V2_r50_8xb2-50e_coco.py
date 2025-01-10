@@ -11,8 +11,10 @@ model = dict(
                 _delete_=True,
                 embed_dims=256,
                 num_heads=8,
-                attn_drop=0.1,
-                cross_attn=False),
+                attn_drop_H = 0.1,
+                attn_drop_W = 0.1,
+                cross_attn=False
+                ),
             cross_attn_cfg=dict(
                 _delete_=True,
                 embed_dims=256,
