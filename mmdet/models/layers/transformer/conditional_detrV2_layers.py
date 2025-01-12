@@ -61,7 +61,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
         #                       self.embed_dims, 2)
         self.ref_select=MLP(self.embed_dims, self.embed_dims,
-                               2, 2)
+                            2, 2)
+        self.key_select=MLP(self.embed_dims, self.embed_dims,
+                            2, 2)
         self.content_query=MLP(self.embed_dims*2, self.embed_dims,
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
@@ -124,6 +126,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         reference_point_selection_choose=reference_point_selection.clone()
         #(Cx,Cy)
         key_pos_selection=key_pos.clone()
+        key_pos_selection=self.key_select(key_pos_selection)
         key_pos_selection=key_pos_selection[...,:2]
 
         k=self.box_estimation(key_pos)

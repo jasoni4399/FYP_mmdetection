@@ -46,7 +46,7 @@ model = dict(
             type='HungarianAssigner',
             match_costs=[
                 dict(type='FocalLossCost', weight=2.0),
-                dict(type='BBoxL1Cost', weight=2.0, box_format='xywh'),
+                dict(type='BBoxL1Cost', weight=8.0, box_format='xywh'),
                 dict(type='IoUCost', iou_mode='giou', weight=2.0)
             ])))
 
@@ -55,7 +55,7 @@ log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(type='TensorboardLoggerHook'),
+        dict(type='TensorboardLoggerHook',log_dir='./work_dirs/logs/'),
         dict(type='JsonLoggerHook'),
         dict(type='FileLoggerHook', log_dir='./work_dirs/logs/')
     ])
