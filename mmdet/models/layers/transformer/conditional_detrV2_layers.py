@@ -636,8 +636,8 @@ class HVAttention(BaseModule):
         q_W=q.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1).permute(1, 0, 2, 3)
-        print("q_H",q_H.size())
-        print("q_W",q_W.size())
+        #print("q_H",q_H.size())
+        #print("q_W",q_W.size())
         k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
