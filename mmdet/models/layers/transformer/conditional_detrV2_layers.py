@@ -211,10 +211,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), reference_selected
+            return torch.stack(intermediate), selected_reference_xy
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), reference_selected
+        return query.unsqueeze(0), selected_reference_xy
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
@@ -630,9 +630,14 @@ class HVAttention(BaseModule):
         #    attn_output_weights = attn_output_weights.view(
         #        bs * self.num_heads, tgt_len, src_len)
         
-        q=q.contiguous().view(bs, tgt_len, self.num_heads,
-                                head_dims).permute(0, 2, 1, 3).flatten(0, 1)
-        #print("q",q.size())
+        q_H=q.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            head_dims).permute(0, 3, 2, 1,
+                                                            4).flatten(0, 1).permute(1, 0, 2, 3)
+        q_W=q.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            head_dims).permute(0, 3, 1, 2,
+                                                            4).flatten(0, 1).permute(1, 0, 2, 3)
+        print("q_H",q_H.size())
+        print("q_W",q_W.size())
         k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
@@ -641,19 +646,25 @@ class HVAttention(BaseModule):
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
         k_W=torch.sum(k_W, dim=2)/feats_height
-        v = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
-                                            v_head_dims).permute(0, 3, 1, 2, 4
-                                                            ).flatten(0, 1)#.view(bs*num_heads,feats_height,v_head_dims*feats_width)
+        v_W = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            v_head_dims).permute(0, 3, 1, 2,
+                                                                4).flatten(0, 1)
+        v_H = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            v_head_dims).permute(0, 3, 2, 1,
+                                                                    4).flatten(0, 1)
 
-        #print("v",v.size())
-        attn_output_weights_H = torch.bmm(q, k_H.transpose(1, 2))
-        attn_output_weights_W = torch.bmm(q, k_W.transpose(1, 2))
+        #print("k_H",k_H.size())
+        #print("k_W",k_W.size())
+        #print("v_W",v_W.size())
+        #print("v_H",v_H.size())
+        attn_output_weights_H = torch.matmul(q_H, k_H.transpose(1, 2)).permute(1,0,2,3)
+        attn_output_weights_W = torch.matmul(q_W, k_W.transpose(1, 2)).permute(1,0,2,3)
 
         assert list(attn_output_weights_H.size()) == [
-                    bs * self.num_heads, tgt_len, feats_height
+                    bs * self.num_heads, feats_width, feats_height, feats_height
                 ]
         assert list(attn_output_weights_W.size()) == [
-                    bs * self.num_heads, tgt_len, feats_width
+                    bs * self.num_heads, feats_height, feats_width, feats_width
                 ]
 
         attn_output_weights_H=F.softmax(
@@ -666,28 +677,29 @@ class HVAttention(BaseModule):
             attn_output_weights_W.max(dim=-1,keepdim=True)[0],
             dim=-1)
         attn_output_weights_W=self.attn_drop_W(attn_output_weights_W)
+
         #print("attn_output_weights_H")
         #print(attn_output_weights_H.size())
         #print("attn_output_weights_W")
         #print(attn_output_weights_W.size())
 
-        #attn_output_H = torch.bmm(attn_output_weights_H, v_H)
-        #attn_output_W = torch.bmm(attn_output_weights_W, v_W)
+        attn_output_H = torch.matmul(attn_output_weights_H, v_H)
+        attn_output_W = torch.matmul(attn_output_weights_W, v_W)
 
-        attn_output_H = torch.einsum('bth,bhwv->btv', attn_output_weights_H, v)
-        attn_output_W = torch.einsum('btw,bhwv->btv', attn_output_weights_W, v)
         #print(attn_output_H.size())
-        #print(attn_output_W.size())
-        attn_output = torch.cat((attn_output_H,attn_output_W), dim=-1)
+        ##print(attn_output_W.size())
+        attn_output = torch.cat((attn_output_H,attn_output_W.permute(0, 2, 1, 3)), dim=-1)
         #print(attn_output.size())
-        attn_output = attn_output.view(bs, self.num_heads, tgt_len,
-                                            attn_output.size(2)).permute(0, 2,
-                                                                    1,3).flatten(2)
+        attn_output = attn_output.view(bs, self.num_heads, feats_height,feats_width,
+                                            attn_output.size(3)).permute(0, 2, 3,
+                                                                    1, 4).flatten(1, 2).flatten(2, 3)
         attn_output = self.out_proj(attn_output)
         #print(attn_output.size())
-        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
-                                                dim=2).view(bs,self.num_heads,
-                                                            tgt_len, feats_height+feats_width)
+        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W.permute(0, 2, 1, 3)),
+                                                dim=3).view(bs,self.num_heads,
+                                                            feats_height, feats_width ,feats_height+feats_width)
+
+        attn_output_weights_W=self.attn_drop_W(attn_output_weights_W)
         
         #second ouput never used
         return attn_output, (attn_output_weights.sum(dim=1)) / self.num_heads

@@ -50,7 +50,6 @@ model = dict(
                 dict(type='IoUCost', iou_mode='giou', weight=2.0)
             ])))
 
-
 log_config = dict(
     interval=50,
     hooks=[
