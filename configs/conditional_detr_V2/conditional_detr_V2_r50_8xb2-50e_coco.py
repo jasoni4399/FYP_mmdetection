@@ -46,7 +46,7 @@ model = dict(
             type='HungarianAssigner',
             match_costs=[
                 dict(type='FocalLossCost', weight=2.0),
-                dict(type='BBoxL1Cost', weight=8.0, box_format='xywh'),
+                dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
                 dict(type='IoUCost', iou_mode='giou', weight=2.0)
             ])))
 
