@@ -67,8 +67,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
         #                       self.embed_dims, 2)
 
-        self.box_estimation=MLP(self.embed_dims, self.embed_dims,
-                               self.embed_dims, 2)
+        #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
+        #                       self.embed_dims, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
