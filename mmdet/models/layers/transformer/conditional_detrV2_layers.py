@@ -60,12 +60,13 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
         #                       self.embed_dims, 2)
-        self.ref_select=MLP(self.embed_dims, self.embed_dims,
-                            2, 2)
-        self.key_select=MLP(self.embed_dims, self.embed_dims,
-                            2, 2)
-        self.content_query=MLP(self.embed_dims*2, self.embed_dims,
-                               self.embed_dims, 2)
+        #self.ref_select=MLP(self.embed_dims, self.embed_dims,
+        #                    2, 2)
+        #self.key_select=MLP(self.embed_dims, self.embed_dims,
+        #                    2, 2)
+        #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
+        #                       self.embed_dims, 2)
+
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
