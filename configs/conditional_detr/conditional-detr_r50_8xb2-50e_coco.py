@@ -41,4 +41,4 @@ train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=17, val_interval=1)
 
 param_scheduler = [dict(type='MultiStepLR', end=17, milestones=[15])]
 
-auto_scale_lr = dict(enable=True, base_batch_size=32)
+auto_scale_lr = dict(enable=True, base_batch_size=64)
