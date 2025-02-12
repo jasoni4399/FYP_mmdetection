@@ -191,7 +191,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         k_selected=k_selected.view(k_selected.size(0),k_selected.size(1)*len(self.content_width),k_selected.size(2)//len(self.content_width))
 
         pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
-        #print("k",k.size(),"pe_before",pe_before.size())
+        print("pe_before",pe_before.size())
         tmp_reg_preds = self.fc_reg(
                 self.activate(self.reg_ffn(pe_before)))
         tmp_reg_preds=k_selected[...,:num_queries, :2]+tmp_reg_preds[...,:num_queries]
