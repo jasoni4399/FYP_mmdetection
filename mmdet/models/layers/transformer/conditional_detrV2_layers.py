@@ -77,8 +77,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             dropout=0.0,
             add_residual=False)
 
-        self.fc_reg = MLP(self.embed_dims, self.embed_dims,
-                               self.embed_dims, 2)
+        self.fc_reg = MLP(4, self.embed_dims,
+                               4, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
