@@ -195,7 +195,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         a=self.reg_ffn(pe_before)
         print("a",a.size())
         tmp_reg_preds = self.fc_reg(a)
-        tmp_reg_preds=k_selected[...,:num_queries, :2]+tmp_reg_preds[...,:num_queries]
+        tmp_reg_preds=k_selected[...,:num_queries, :4]+tmp_reg_preds[...,:num_queries]
         pe=coordinate_to_encoding(coord_tensor=tmp_reg_preds.sigmoid())
         #pe: torch.Size([2, 300, 512])
         #print("pe",pe.size())
