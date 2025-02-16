@@ -69,7 +69,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                                self.embed_dims, 2)
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
-        self.activate = nn.ReLU()
         self.reg_ffn = FFN(
             self.embed_dims,
             self.embed_dims,
@@ -78,7 +77,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             dropout=0.0,
             add_residual=False)
 
-        self.fc_reg = Linear(self.embed_dims, 4)
+        self.fc_reg = MLP(self.embed_dims, 4)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
@@ -192,8 +191,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
         print("pe_before",pe_before.size())
-        tmp_reg_preds = self.fc_reg(
-                self.activate(self.reg_ffn(pe_before)))
+        a=self.reg_ffn(pe_before)
+        print("a",a.size())
+        tmp_reg_preds = self.fc_reg(a)
         tmp_reg_preds=k_selected[...,:num_queries, :2]+tmp_reg_preds[...,:num_queries]
         pe=coordinate_to_encoding(coord_tensor=tmp_reg_preds.sigmoid())
         #pe: torch.Size([2, 300, 512])
@@ -515,7 +515,12 @@ class HVAttention(BaseModule):
         """Initialize layers for qkv projection."""
         embed_dims = self.embed_dims
         self.out_proj = Linear(embed_dims*2, embed_dims)
-
+        self.query_proj = Linear(embed_dims, embed_dims)
+        self.qpos_proj = Linear(embed_dims, embed_dims)
+        self.kpos_proj = Linear(embed_dims, embed_dims)
+        self.key_proj =  Linear(embed_dims, embed_dims)
+        self.value_proj_H = Linear(embed_dims, embed_dims)
+        self.value_proj_W = Linear(embed_dims, embed_dims)
         nn.init.constant_(self.out_proj.bias, 0.)
 
     def forward_attn(self,
@@ -644,12 +649,10 @@ class HVAttention(BaseModule):
         #    attn_output_weights = attn_output_weights.view(
         #        bs * self.num_heads, tgt_len, src_len)
         
-        q_H=q.contiguous().view(bs, feats_height,feats_width, self.num_heads,
-                                            head_dims).permute(0, 3, 2, 1,
-                                                            4).flatten(0, 1).permute(1, 0, 2, 3)
-        q_W=q.contiguous().view(bs, feats_height,feats_width, self.num_heads,
-                                            head_dims).permute(0, 3, 1, 2,
-                                                            4).flatten(0, 1).permute(1, 0, 2, 3)
+        q_H=q.contiguous().view(bs, tgt_len, self.num_heads,
+                                            head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
+        q_W=q.contiguous().view(bs, tgt_len, self.num_heads,
+                                            head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
         #print("q_H",q_H.size())
         #print("q_W",q_W.size())
         k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
@@ -660,26 +663,14 @@ class HVAttention(BaseModule):
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
         k_W=torch.sum(k_W, dim=2)/feats_height
-        v_W = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
-                                            v_head_dims).permute(0, 3, 1, 2,
-                                                                4).flatten(0, 1)
-        v_H = v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
-                                            v_head_dims).permute(0, 3, 2, 1,
-                                                                    4).flatten(0, 1)
+        
 
         #print("k_H",k_H.size())
         #print("k_W",k_W.size())
-        #print("v_W",v_W.size())
-        #print("v_H",v_H.size())
-        attn_output_weights_H = torch.matmul(q_H, k_H.transpose(1, 2)).permute(1,0,2,3)
-        attn_output_weights_W = torch.matmul(q_W, k_W.transpose(1, 2)).permute(1,0,2,3)
 
-        assert list(attn_output_weights_H.size()) == [
-                    bs * self.num_heads, feats_width, feats_height, feats_height
-                ]
-        assert list(attn_output_weights_W.size()) == [
-                    bs * self.num_heads, feats_height, feats_width, feats_width
-                ]
+        # Compute attention scores
+        attn_output_weights_H = torch.matmul(q_H, k_H.transpose(1, 2))
+        attn_output_weights_W = torch.matmul(q_W, k_W.transpose(1, 2))
 
         attn_output_weights_H=F.softmax(
             attn_output_weights_H -
@@ -692,26 +683,36 @@ class HVAttention(BaseModule):
             dim=-1)
         attn_output_weights_W=self.attn_drop_W(attn_output_weights_W)
 
-        #print("attn_output_weights_H")
+        #print("attn_output_weights_H",attn_output_weights_H.size())
+        #print("attn_output_weights_W",attn_output_weights_W.size())
+
+        # Apply attention to values (V is reshaped to rows/columns)
+        v_H = self.value_proj_H(v).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            v_head_dims).permute(0, 3, 2, 1,
+                                                                4).flatten(0, 2)
+        v_W = self.value_proj_W(v).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+                                            v_head_dims).permute(0, 3, 1, 2,
+                                                                4).flatten(0, 2)
+        #print("v_H",v_H.size())
+        #print("v_W",v_W.size())
+        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W),
+                                                dim=2).view(bs*self.num_heads,src_len, feats_height+feats_width)
+        attn_output_weights_H=attn_output_weights_H.view(bs*self.num_heads, feats_height,feats_width,feats_height).permute(0,2,1,3).flatten(0,1)
+        attn_output_weights_W=attn_output_weights_W.view(bs*self.num_heads, feats_height,feats_width,feats_width).permute(0,1,2,3).flatten(0,1)
         #print(attn_output_weights_H.size())
-        #print("attn_output_weights_W")
         #print(attn_output_weights_W.size())
+        out_H = torch.bmm(attn_output_weights_H,v_H).view(bs*self.num_heads,tgt_len,v_head_dims) # (B*num_heads, W, H, head_dims)
+        out_W = torch.bmm(attn_output_weights_W,v_W).view(bs*self.num_heads,tgt_len,v_head_dims)  # (B*num_heads, H, W, head_dims)
+        #print(out_H.size())
+        #print(out_W.size())
+        # Concatenate and reshape
+        out = torch.cat([out_H, out_W], dim=-1)
+        out = out.reshape(bs, self.num_heads, feats_height, feats_width, 2*head_dims)
+        out = out.permute(0, 2, 3, 1, 4).flatten(3, 4).flatten(1, 2)  # (B, H*W, 2C)
+        #print(out.size())
 
-        attn_output_H = torch.matmul(attn_output_weights_H, v_H)
-        attn_output_W = torch.matmul(attn_output_weights_W, v_W)
-
-        #print(attn_output_H.size())
-        ##print(attn_output_W.size())
-        attn_output = torch.cat((attn_output_H,attn_output_W.permute(0, 2, 1, 3)), dim=-1)
+        attn_output = self.out_proj(out)
         #print(attn_output.size())
-        attn_output = attn_output.view(bs, self.num_heads, feats_height,feats_width,
-                                            attn_output.size(3)).permute(0, 2, 3,
-                                                                    1, 4).flatten(1, 2).flatten(2, 3)
-        attn_output = self.out_proj(attn_output)
-        #print(attn_output.size())
-        attn_output_weights = torch.cat((attn_output_weights_H,attn_output_weights_W.permute(0, 2, 1, 3)),
-                                                dim=3).view(bs,self.num_heads,
-                                                            feats_height, feats_width ,feats_height+feats_width)
 
         attn_output_weights_W=self.attn_drop_W(attn_output_weights_W)
         
@@ -768,10 +769,11 @@ class HVAttention(BaseModule):
         #self attention for encoder
 
         #b,_,H,W=query.size()
-        if key is None:
-            key = query
-        if value is None:
-            value = key
+        value = query
+        query = self.query_proj(query)
+        key = self.key_proj(key)
+        
+        
         if key_pos is None:
             if query_pos is not None:
                 # use query_pos if key_pos is not available
@@ -781,8 +783,10 @@ class HVAttention(BaseModule):
                     warnings.warn(f'position encoding of key is'
                                   f'missing in {self.__class__.__name__}.')
         if query_pos is not None:
+            query_pos = self.qpos_proj(query_pos)
             query = query + query_pos
         if key_pos is not None:
+            key_pos = self.kpos_proj(key_pos)
             key = key + key_pos
 
         sa_output = self.forward_attn(
