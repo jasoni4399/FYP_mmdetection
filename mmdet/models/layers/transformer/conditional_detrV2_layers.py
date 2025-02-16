@@ -70,8 +70,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.box_estimation=MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         self.reg_ffn = FFN(
-            self.embed_dims,
-            self.embed_dims,
+            4,
+            4,
             2,
             dict(type='ReLU', inplace=True),
             dropout=0.0,
