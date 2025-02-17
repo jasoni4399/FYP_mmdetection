@@ -61,24 +61,23 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
         #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
         #                       self.embed_dims, 2)
-        self.ref_select=MLP(self.embed_dims, self.embed_dims,
-                            2, 2)
-        self.key_select=MLP(self.embed_dims, self.embed_dims,
-                            2, 2)
-        self.content_query=MLP(self.embed_dims*2, self.embed_dims,
-                               self.embed_dims, 2)
-        self.box_estimation=MLP(self.embed_dims, self.embed_dims,
-                               self.embed_dims, 2)
-        self.reg_ffn = FFN(
-            4,
-            4,
-            2,
-            dict(type='ReLU', inplace=True),
-            dropout=0.0,
-            add_residual=False)
-
-        self.fc_reg = MLP(4, self.embed_dims,
-                               4, 2)
+        #self.ref_select=MLP(self.embed_dims, self.embed_dims,
+        #                    2, 2)
+        #self.key_select=MLP(self.embed_dims, self.embed_dims,
+        #                    2, 2)
+        #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
+        #                       self.embed_dims, 2)
+        #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
+        #                       self.embed_dims, 2)
+        #self.reg_ffn = FFN(
+        #    4,
+        #    4,
+        #    2,
+        #    dict(type='ReLU', inplace=True),
+        #    dropout=0.0,
+        #    add_residual=False)
+        #
+        #self.fc_reg = MLP(4, self.embed_dims, 4, 2)
         # we have substitute 'qpos_proj' with 'qpos_sine_proj' except for
         # the first decoder layer), so 'qpos_proj' should be deleted
         # in other layers.
@@ -115,120 +114,36 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             (bs, num_queries, 2).
         """
 
-        #V1
-        #reference_unsigmoid = self.ref_point_head(
-        #    query_pos)  # [bs, num_queries, 2]
-        #reference= reference_unsigmoid.sigmoid()
-        #reference_xy=reference[...,:2]
-        #V2 box query
-
-        bs,num_queries,dim=query_pos.size()
-        #print(bs,num_queries,dim)
-        
-        #V2
-        #reference_point
-        #s=FFN(x(Cx,Cy))
-        reference_unsigmoid=self.ref_select(key_pos)
-        reference_point_selection=reference_unsigmoid[...,:2]
-
-        #selection
-        lambda_q = self.ref_point_head(key_pos)# [bs, num_keys, dim]
-
-        reference_point_selection_choose=reference_point_selection.clone()
-        #(Cx,Cy)
-        key_pos_selection=key_pos.clone()
-        key_pos_selection=self.key_select(key_pos_selection)
-        key_pos_selection=key_pos_selection[...,:2]
-
-        k=self.box_estimation(key_pos)
-        #k=k[...,:2]
-
-        #reference_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
-        #key_pos_selected=torch.empty(bs,num_queries,2,device=query_pos.device)
-        #lambda_q_selected=torch.empty(bs,num_queries,self.embed_dims,device=query_pos.device)
-
-        def select(before_select ,selection_reference ,bs,num_q,dims):
-            selection=torch.empty(bs,num_q,dims,device=query_pos.device)
-            for i in range(bs):
-                selected=before_select[i][:][selection_reference[i][:,0]== torch.max(selection_reference[i][:,0])]
-                if selected.size(0)<num_q:
-                    selected = F.pad(selected, (0,0,0,num_q-selected.size(0)), "constant",0)
-                elif selected.size(0)>=num_q:
-                    selected=selected[:num_q,:dims]
-                selection[i]=selected
-            return selection
-        
-        reference_selected=select(reference_point_selection_choose,reference_point_selection_choose,
-                                  bs,num_queries,2)
-        key_pos_selected=select(key_pos_selection,reference_point_selection_choose,
-                                bs,num_queries,2)
-        lambda_q_selected=select(lambda_q,reference_point_selection_choose,
-                                 bs,num_queries,self.embed_dims)
-        k_selected=select(k,reference_point_selection_choose,
-                                 bs,num_queries,self.embed_dims)
-
-        #Ps
-        selected_reference_sigmoid=reference_selected.sigmoid()
-        selected_reference_xy = selected_reference_sigmoid[...,:2]
-
-        #lambda_q = lambda_q.sigmoid()
-        #lambda_q=FFN(x(Cx,Cy))
-        #print("lambda_q:",lambda_q.size())
-
-        #Cq initial by image content
-        #query=self.content_query(reference_xy)
-        #or
-        #content_w_h=torch.tensor([self.content_width,self.content_height],device=query_pos.device)
-        #content_w_h=content_w_h.unsqueeze(0).repeat(key_pos_selected[..., :2].size(0),key_pos_selected[..., :2].size(1),1)
-        content_w_h=torch.tensor([self.content_width,self.content_height],device=query_pos.device)
-        content_w_h=content_w_h.permute(1,0)
-        content_w_h=content_w_h.unsqueeze(0).repeat(key_pos_selected[..., :2].size(0),key_pos_selected[..., :2].size(1),1)
-        
-        key_pos_selected=key_pos_selected.repeat(1,1,len(self.content_width))
-        key_pos_selected=key_pos_selected.view(key_pos_selected.size(0),key_pos_selected.size(1)*len(self.content_width),key_pos_selected.size(2)//len(self.content_width))
-
-        k_selected=k_selected.repeat(1,1,len(self.content_width))
-        k_selected=k_selected.view(k_selected.size(0),k_selected.size(1)*len(self.content_width),k_selected.size(2)//len(self.content_width))
-
-        pe_before=inverse_sigmoid(torch.cat([key_pos_selected, content_w_h],dim=2).permute(2,1,0)).permute(2,1,0)#
-        #print("pe_before",pe_before.size())
-        #a=
-        #print("a",a.size())
-        tmp_reg_preds = self.fc_reg(self.reg_ffn(pe_before))
-        tmp_reg_preds=k_selected[...,:num_queries, :4]+tmp_reg_preds[...,:num_queries,:4]
-        pe=coordinate_to_encoding(coord_tensor=tmp_reg_preds.sigmoid())
-        #pe: torch.Size([2, 300, 512])
-        #print("pe",pe.size())
-        query=self.content_query(pe)
-        #print("query:",query.size())
+        reference_unsigmoid = self.ref_point_head(
+            query_pos)  # [bs, num_queries, 2]
+        #breakpoint()
+        reference = reference_unsigmoid.sigmoid()
+        reference_xy = reference[..., :2]
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                pos_transformation = self.query_scale(lambda_q_selected)
+                pos_transformation = 1
             else:
-                pos_transformation = self.query_scale(query) #lambda_q
-            # get sine embedding for the query reference 
-            ref_sine_embed = coordinate_to_encoding(coord_tensor=selected_reference_xy)#Ps
-            #print("ref_sine_embed",ref_sine_embed.size())
+                pos_transformation = self.query_scale(query)
+            # get sine embedding for the query reference
+            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
-            #print("ref_sine_embed_tran",ref_sine_embed.size())
             query = layer(
-                query,#box query
-                key=key,#encoder embedding
+                query,
+                key=key,
                 query_pos=query_pos,
                 key_pos=key_pos,
                 key_padding_mask=key_padding_mask,
-                ref_sine_embed=ref_sine_embed,
                 is_first=(layer_id == 0))
             if self.return_intermediate:
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), selected_reference_xy
+            return torch.stack(intermediate), reference
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), selected_reference_xy
+        return query.unsqueeze(0), reference
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
