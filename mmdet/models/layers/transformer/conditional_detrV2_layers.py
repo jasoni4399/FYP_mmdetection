@@ -57,7 +57,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         # conditional detr affline
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
-        self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
+        #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
+        self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
 
         #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
         #                       self.embed_dims, 2)
