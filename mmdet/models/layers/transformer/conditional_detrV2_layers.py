@@ -135,6 +135,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 query_pos=query_pos,
                 key_pos=key_pos,
                 key_padding_mask=key_padding_mask,
+                ref_sine_embed=ref_sine_embed,
                 is_first=(layer_id == 0))
             if self.return_intermediate:
                 intermediate.append(self.post_norm(query))
