@@ -569,24 +569,20 @@ class HVAttention(BaseModule):
         #    attn_output_weights = attn_output_weights.view(
         #        bs * self.num_heads, tgt_len, src_len)
         
-        q_H=q.contiguous().view(bs, tgt_len, self.num_heads,
+        q_H=self.query_proj_H(q).contiguous().view(bs, tgt_len, self.num_heads,
                                             head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
-        q_W=q.contiguous().view(bs, tgt_len, self.num_heads,
+        q_W=self.query_proj_W(q).contiguous().view(bs, tgt_len, self.num_heads,
                                             head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
         #print("q_H",q_H.size())
         #print("q_W",q_W.size())
-        q_H = self.query_proj_H(q_H)
-        q_W = self.query_proj_W(q_W)
 
-        k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        k_H=self.key_proj_H(k).contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
         
-        k_W=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        k_W=self.key_proj_W(k).contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
-        k_H = self.key_proj_H(k_H)
-        k_W = self.key_proj_W(k_W)
 
         k_H=torch.sum(k_H, dim=2)/feats_width
         k_W=torch.sum(k_W, dim=2)/feats_height
