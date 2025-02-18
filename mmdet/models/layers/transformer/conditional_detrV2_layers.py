@@ -433,10 +433,10 @@ class HVAttention(BaseModule):
         """Initialize layers for qkv projection."""
         embed_dims = self.embed_dims
         self.out_proj = Linear(embed_dims*2, embed_dims)
-        self.query_proj = Linear(embed_dims, embed_dims)
-        self.qpos_proj = Linear(embed_dims, embed_dims)
-        self.kpos_proj = Linear(embed_dims, embed_dims)
-        self.key_proj =  Linear(embed_dims, embed_dims)
+        self.query_proj_H = Linear(embed_dims, embed_dims)
+        self.query_proj_W = Linear(embed_dims, embed_dims)
+        self.key_proj_H = Linear(embed_dims, embed_dims)
+        self.key_proj_W =  Linear(embed_dims, embed_dims)
         self.value_proj_H = Linear(embed_dims, embed_dims)
         self.value_proj_W = Linear(embed_dims, embed_dims)
         nn.init.constant_(self.out_proj.bias, 0.)
@@ -499,7 +499,9 @@ class HVAttention(BaseModule):
         assert head_dims * self.num_heads == hidden_dims, \
             f'{"hidden_dims must be divisible by num_heads"}'
         scaling = float(head_dims)**-0.5
-
+        #query = self.query_proj(query)
+        #key = self.key_proj(key)
+        #value = self.value_proj_H(value)
         q = query * scaling
         k = key
         v = value
@@ -573,16 +575,22 @@ class HVAttention(BaseModule):
                                             head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
         #print("q_H",q_H.size())
         #print("q_W",q_W.size())
+        q_H = self.query_proj_H(q_H)
+        q_W = self.query_proj_W(q_W)
+
         k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
-        k_H=torch.sum(k_H, dim=2)/feats_width
+        
         k_W=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
+        k_H = self.key_proj_H(k_H)
+        k_W = self.key_proj_W(k_W)
+
+        k_H=torch.sum(k_H, dim=2)/feats_width
         k_W=torch.sum(k_W, dim=2)/feats_height
         
-
         #print("k_H",k_H.size())
         #print("k_W",k_W.size())
 
@@ -688,9 +696,6 @@ class HVAttention(BaseModule):
 
         #b,_,H,W=query.size()
         value = query
-        query = self.query_proj(query)
-        key = self.key_proj(key)
-        
         
         if key_pos is None:
             if query_pos is not None:
@@ -701,10 +706,10 @@ class HVAttention(BaseModule):
                     warnings.warn(f'position encoding of key is'
                                   f'missing in {self.__class__.__name__}.')
         if query_pos is not None:
-            query_pos = self.qpos_proj(query_pos)
+            #query_pos = self.qpos_proj(query_pos)
             query = query + query_pos
         if key_pos is not None:
-            key_pos = self.kpos_proj(key_pos)
+            #key_pos = self.kpos_proj(key_pos)
             key = key + key_pos
 
         sa_output = self.forward_attn(
