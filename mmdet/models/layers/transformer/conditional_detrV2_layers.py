@@ -433,12 +433,12 @@ class HVAttention(BaseModule):
         """Initialize layers for qkv projection."""
         embed_dims = self.embed_dims
         self.out_proj = Linear(embed_dims*2, embed_dims)
-        self.query_proj_H = Linear(embed_dims, embed_dims)
-        self.query_proj_W = Linear(embed_dims, embed_dims)
-        self.key_proj_H = Linear(embed_dims, embed_dims)
-        self.key_proj_W =  Linear(embed_dims, embed_dims)
-        self.value_proj_H = Linear(embed_dims, embed_dims)
-        self.value_proj_W = Linear(embed_dims, embed_dims)
+        self.query_proj_1 = Linear(embed_dims, embed_dims)
+        self.query_proj_2 = Linear(embed_dims, embed_dims)
+        self.key_proj_1 = Linear(embed_dims, embed_dims)
+        self.key_proj_2 =  Linear(embed_dims, embed_dims)
+        self.value_proj_1 = Linear(embed_dims, embed_dims)
+        self.value_proj_2 = Linear(embed_dims, embed_dims)
         nn.init.constant_(self.out_proj.bias, 0.)
 
     def forward_attn(self,
@@ -506,6 +506,10 @@ class HVAttention(BaseModule):
         k = key
         v = value
 
+        q = self.query_proj_2(q)
+        k = self.key_proj_2(k)
+        v = self.value_proj_2(v)
+        
         #None
         if attn_mask is not None:
             assert attn_mask.dtype == torch.float32 or \
@@ -569,18 +573,18 @@ class HVAttention(BaseModule):
         #    attn_output_weights = attn_output_weights.view(
         #        bs * self.num_heads, tgt_len, src_len)
         
-        q_H=self.query_proj_H(q).contiguous().view(bs, tgt_len, self.num_heads,
+        q_H=q.contiguous().view(bs, tgt_len, self.num_heads,
                                             head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
-        q_W=self.query_proj_W(q).contiguous().view(bs, tgt_len, self.num_heads,
+        q_W=q.contiguous().view(bs, tgt_len, self.num_heads,
                                             head_dims).permute(0, 2, 1, 3).flatten(0, 1)#.permute(1, 0, 2, 3)
         #print("q_H",q_H.size())
         #print("q_W",q_W.size())
 
-        k_H=self.key_proj_H(k).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        k_H=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 1, 2,
                                                             4).flatten(0, 1)
         
-        k_W=self.key_proj_W(k).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        k_W=k.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
 
@@ -609,10 +613,10 @@ class HVAttention(BaseModule):
         #print("attn_output_weights_W",attn_output_weights_W.size())
 
         # Apply attention to values (V is reshaped to rows/columns)
-        v_H = self.value_proj_H(v).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        v_H =v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             v_head_dims).permute(0, 3, 2, 1,
                                                                 4).flatten(0, 2)
-        v_W = self.value_proj_W(v).contiguous().view(bs, feats_height,feats_width, self.num_heads,
+        v_W =v.contiguous().view(bs, feats_height,feats_width, self.num_heads,
                                             v_head_dims).permute(0, 3, 1, 2,
                                                                 4).flatten(0, 2)
         #print("v_H",v_H.size())
@@ -691,7 +695,9 @@ class HVAttention(BaseModule):
         #self attention for encoder
 
         #b,_,H,W=query.size()
-        value = query
+        query = self.query_proj_1(query)
+        key = self.key_proj_1(key)
+        value = self.value_proj_1(value)
         
         if key_pos is None:
             if query_pos is not None:
