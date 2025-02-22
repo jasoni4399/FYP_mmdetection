@@ -9,11 +9,11 @@ model = dict(
         depth=50,
         num_stages=4,
         # Enable dilation in stage4 (last stage)
-        dilations=(1, 1, 1, 2),  # <--- Add this line
-        strides=(1, 2, 2, 1),    # <--- Adjust strides to (1,2,2,1) for DC5
-        out_indices=(0, 1, 2, 3),
+        dilations=(1, 1, 1, 2),  
+        strides=(1, 2, 2, 1),    #Adjust strides to (1,2,2,1) for DC5
+        out_indices=(3,),
         frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
+        norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch',
         init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
