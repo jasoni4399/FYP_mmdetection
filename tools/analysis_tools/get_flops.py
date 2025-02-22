@@ -129,13 +129,14 @@ def main():
     flops = result['flops']
     params = result['params']
     compute_type = result['compute_type']
+    memory = result['memory']
 
     if pad_shape != ori_shape:
         print(f'{split_line}\nUse size divisor set input shape '
               f'from {ori_shape} to {pad_shape}')
     print(f'{split_line}\nCompute type: {compute_type}\n'
           f'Input shape: {pad_shape}\nFlops: {flops}\n'
-          f'Params: {params}\n{split_line}')
+          f'Params: {params}\nMemory: {memory}\n{split_line}')
     print('!!!Please be cautious if you use the results in papers. '
           'You may need to check if all ops are supported and verify '
           'that the flops computation is correct.')
