@@ -78,6 +78,7 @@ def inference(args, logger):
 
     result = {}
     avg_flops = []
+    avg_Memory = []
     data_loader = Runner.build_dataloader(cfg.val_dataloader)
     model = MODELS.build(cfg.model)
     if torch.cuda.is_available():
@@ -94,6 +95,7 @@ def inference(args, logger):
         result['pad_shape'] = data['data_samples'][0].pad_shape
         if hasattr(data['data_samples'][0], 'batch_input_shape'):
             result['pad_shape'] = data['data_samples'][0].batch_input_shape
+        torch.cuda.reset_peak_memory_stats()
         model.forward = partial(_forward, data_samples=data['data_samples'])
         outputs = get_model_complexity_info(
             model,
@@ -102,14 +104,17 @@ def inference(args, logger):
             show_table=False,
             show_arch=False)
         avg_flops.append(outputs['flops'])
+        avg_Memory.append(torch.cuda.max_memory_allocated())
         params = outputs['params']
         result['compute_type'] = 'dataloader: load a picture from the dataset'
     del data_loader
 
     mean_flops = _format_size(int(np.average(avg_flops)))
     params = _format_size(params)
+    mean_Memory = _format_size(int(np.average(avg_Memory)))
     result['flops'] = mean_flops
     result['params'] = params
+    result['memory'] = mean_Memory
 
     return result
 
