@@ -8,6 +8,8 @@ from mmengine.registry import RUNNERS
 from mmengine.runner import Runner
 
 from mmdet.utils import setup_cache_size_limit_of_dynamo
+import torch
+import gc
 
 
 def parse_args():
@@ -118,4 +120,6 @@ def main():
 
 
 if __name__ == '__main__':
+    gc.collect()
+    torch.cuda.empty_cache()
     main()
