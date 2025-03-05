@@ -588,8 +588,8 @@ class HVAttention(BaseModule):
                                             head_dims).permute(0, 3, 2, 1,
                                                             4).flatten(0, 1)
 
-        k_H=torch.sum(k_H, dim=2)/feats_width
-        k_W=torch.sum(k_W, dim=2)/feats_height
+        k_H=torch.mean(k_H, dim=2)
+        k_W=torch.mean(k_W, dim=2)
         
         #print("k_H",k_H.size())
         #print("k_W",k_W.size())
