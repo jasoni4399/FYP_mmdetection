@@ -57,15 +57,17 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         # conditional detr affline
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
+        self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
+                                  self.embed_dims, 2)
         #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
 
-        #self.lambda_q=MLP(self.embed_dims, self.embed_dims,
-        #                       self.embed_dims, 2)
-        #self.ref_select=MLP(self.embed_dims, self.embed_dims,
-        #                    2, 2)
-        #self.key_select=MLP(self.embed_dims, self.embed_dims,
-        #                    2, 2)
+        self.lambda_q=MLP(self.embed_dims, self.embed_dims,
+                               self.embed_dims, 2)
+        self.ref_select_head=MLP(self.embed_dims, self.embed_dims,
+                            2, 2)
+        self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,
+                            2, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
         #                       self.embed_dims, 2)
         #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
@@ -115,16 +117,59 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             (bs, num_queries, 2).
         """
 
-        reference_unsigmoid = self.ref_point_head(
-            query_pos)  # [bs, num_queries, 2]
+        bs,num_queries,dim=query_pos.size()
+
+        def select(before_select ,selection_reference ,bs,num_q,dims):
+            selection=torch.empty(bs,num_q,dims,device=query_pos.device)
+            for i in range(bs):
+                selected=before_select[i][:][selection_reference[i][:,0]== torch.max(selection_reference[i][:,0])]
+                if selected.size(0)<num_q:
+                    selected = F.pad(selected, (0,0,0,num_q-selected.size(0)), "constant",0)
+                elif selected.size(0)>=num_q:
+                    selected=selected[:num_q,:dims]
+                selection[i]=selected
+            return selection
+
+
+        #v1
+        #reference_unsigmoid = self.ref_point_head(
+        #    query_pos)  # [bs, num_queries, 2]
         #breakpoint()
-        reference = reference_unsigmoid.sigmoid()
-        reference_xy = reference[..., :2]
+        #reference = reference_unsigmoid.sigmoid()
+        #reference_xy = reference[..., :2]
+        
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                pos_transformation = 1
+                reference_unsigmoid=self.ref_select_head(query_pos)
+                reference_xy=reference_unsigmoid[...,:2]
+
+                #selection
+                lambda_q = self.lambda_q(query_pos)# [bs, num_keys, dim]
+
+                key_pos_selection=key_pos.clone()
+                key_pos_selection=self.key_ref_select_head(key_pos_selection)
+                key_pos_selection=key_pos_selection[...,:2]
+
+                #k=self.box_estimation(key_pos)
+
+                reference_selected=select(reference_xy,reference_xy,
+                                  bs,num_queries,2)
+                #key_pos_selected=select(key_pos_selection,reference_xy,
+                #                        bs,num_queries,2)
+                lambda_q_selected=select(lambda_q,reference_xy,
+                                         bs,num_queries,self.embed_dims)
+                #k_selected=select(k,reference_xy,
+                #                         bs,num_queries,self.embed_dims)
+
+                #Ps
+                selected_reference_sigmoid=reference_selected.sigmoid()
+                reference_xy = selected_reference_sigmoid[...,:2]
+
+                pos_transformation = self.transform_init(lambda_q_selected)
             else:
+                reference_unsigmoid=self.ref_point_head(query_pos)
+                reference_xy=reference_unsigmoid[...,:2]
                 pos_transformation = self.query_scale(query)
             # get sine embedding for the query reference
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
@@ -142,10 +187,10 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 intermediate.append(self.post_norm(query))
 
         if self.return_intermediate:
-            return torch.stack(intermediate), reference
+            return torch.stack(intermediate), reference_xy
 
         query = self.post_norm(query)
-        return query.unsqueeze(0), reference
+        return query.unsqueeze(0), reference_xy
     
 
 class ConditionalDetrTransformerV2Encoder(BaseModule):
