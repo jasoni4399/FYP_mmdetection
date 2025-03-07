@@ -155,7 +155,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 #key_pos_selected=select(key_pos_selection,reference_xy,
                 #                        bs,num_queries,2)
                 lambda_q_selected=select(lambda_q,reference_xy,
-                                         bs,num_queries,self.embed_dims)
+                                         bs,num_queries,2)
                 #k_selected=select(k,reference_xy,
                 #                         bs,num_queries,self.embed_dims)
 
