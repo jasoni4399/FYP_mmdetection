@@ -58,11 +58,11 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
         self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
-                                  self.embed_dims, 2)
+                                self.embed_dims, 2)
         #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
-
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
+
         self.ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
@@ -127,7 +127,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 selection[i]=selected
             return selection
 
-
         #v1
         #reference_unsigmoid = self.ref_point_head(
         #    query_pos)  # [bs, num_queries, 2]
@@ -144,18 +143,16 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 #selection
                 lambda_q = self.lambda_q(query)# [bs, num_keys, dim]
 
-                key_pos_selection=key_pos.clone()
-                key_pos_selection=self.key_ref_select_head(key_pos_selection)
-                key_pos_selection=key_pos_selection[...,:2]
+                key_pos_selection=self.key_ref_select_head(key_pos)
 
                 #k=self.box_estimation(key_pos)
 
                 reference_selected=select(reference_xy,reference_xy,
-                                  bs,num_queries,2)
-                #key_pos_selected=select(key_pos_selection,reference_xy,
-                #                        bs,num_queries,2)
+                                          bs,num_queries,2)
+                key_pos=select(key_pos_selection,reference_xy,
+                               bs,num_queries,key_pos_selection.size(2))
                 lambda_q_selected=select(lambda_q,reference_xy,
-                                         bs,num_queries,2)
+                                         bs,num_queries,lambda_q.size(2))
                 #k_selected=select(k,reference_xy,
                 #                         bs,num_queries,self.embed_dims)
 
