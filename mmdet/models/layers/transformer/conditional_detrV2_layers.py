@@ -166,7 +166,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 selected_reference_sigmoid=reference_selected.sigmoid()
                 reference_xy = selected_reference_sigmoid[...,:2]
 
-                pos_transformation = self.transform_init(lambda_q_selected)
+                pos_transformation = self.lambda_q_head(lambda_q_selected)
             else:
                 reference_unsigmoid=self.ref_point_head(query_pos)
                 reference_xy=reference_unsigmoid[...,:2]
