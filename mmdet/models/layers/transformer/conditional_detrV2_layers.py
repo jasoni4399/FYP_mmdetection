@@ -149,8 +149,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
                 reference_selected=select(reference_xy,reference_xy,
                                           bs,num_queries,2)
-                key_pos=select(key_pos_selection,reference_xy,
-                               bs,num_queries,key_pos_selection.size(2))
+                #key_pos=select(key_pos_selection,reference_xy,
+                #               bs,num_queries,key_pos_selection.size(2))
                 lambda_q_selected=select(lambda_q,reference_xy,
                                          bs,num_queries,lambda_q.size(2))
                 #k_selected=select(k,reference_xy,
