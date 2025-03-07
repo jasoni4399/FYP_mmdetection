@@ -62,7 +62,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
 
-        self.lambda_q=MLP(self.embed_dims, self.embed_dims,2, 2)
+        self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
         self.ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
