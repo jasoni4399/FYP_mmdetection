@@ -64,7 +64,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
 
         self.ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
-        self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
+        #self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
         #                       self.embed_dims, 2)
         #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
@@ -143,7 +143,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 #selection
                 lambda_q = self.lambda_q(query)# [bs, num_keys, dim]
 
-                key_pos_selection=self.key_ref_select_head(key_pos)
+                #key_pos_selection=self.key_ref_select_head(key_pos)
 
                 #k=self.box_estimation(key_pos)
 
