@@ -57,8 +57,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         # conditional detr affline
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
-        self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
-                                self.embed_dims, 2)
+        #self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
+        #                        self.embed_dims, 2)
         #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
@@ -137,11 +137,11 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                reference_unsigmoid=self.ref_select_head(query_pos)
+                reference_unsigmoid=self.ref_select_head(key_pos)
                 reference_xy=reference_unsigmoid[...,:2]
 
                 #selection
-                lambda_q = self.lambda_q(query)# [bs, num_keys, dim]
+                lambda_q = self.lambda_q(key_pos)# [bs, num_keys, dim]
 
                 #key_pos_selection=self.key_ref_select_head(key_pos)
 
@@ -151,8 +151,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                                           bs,num_queries,2)
                 #key_pos=select(key_pos_selection,reference_xy,
                 #               bs,num_queries,key_pos_selection.size(2))
-                lambda_q_selected=select(lambda_q,reference_xy,
-                                         bs,num_queries,lambda_q.size(2))
                 #k_selected=select(k,reference_xy,
                 #                         bs,num_queries,self.embed_dims)
 
@@ -160,7 +158,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 selected_reference_sigmoid=reference_selected.sigmoid()
                 reference_xy = selected_reference_sigmoid[...,:2]
 
-                pos_transformation = self.lambda_q_head(lambda_q_selected)
+                pos_transformation = lambda_q #self.lambda_q_head(lambda_q)
             else:
                 reference_unsigmoid=self.ref_point_head(query_pos)
                 reference_xy=reference_unsigmoid[...,:2]
