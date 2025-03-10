@@ -57,8 +57,8 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         # conditional detr affline
         self.query_scale = MLP(self.embed_dims, self.embed_dims,
                                self.embed_dims, 2)
-        #self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
-        #                        self.embed_dims, 2)
+        self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
+                                self.embed_dims, 2)
         #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
@@ -149,6 +149,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
                 reference_selected=select(reference_xy,reference_xy,
                                           bs,num_queries,2)
+                lambda_q_selected=select(lambda_q,reference_xy,
+                                        bs,num_queries,self.embed_dims)
+
                 #key_pos=select(key_pos_selection,reference_xy,
                 #               bs,num_queries,key_pos_selection.size(2))
                 #k_selected=select(k,reference_xy,
@@ -158,7 +161,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 selected_reference_sigmoid=reference_selected.sigmoid()
                 reference_xy = selected_reference_sigmoid[...,:2]
 
-                pos_transformation = lambda_q #self.lambda_q_head(lambda_q)
+                pos_transformation = self.lambda_q_head(lambda_q_selected)
             else:
                 reference_unsigmoid=self.ref_point_head(query_pos)
                 reference_xy=reference_unsigmoid[...,:2]
