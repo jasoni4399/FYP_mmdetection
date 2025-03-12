@@ -138,11 +138,11 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                reference_unsigmoid=self.ref_select_head(key_pos)
+                reference_unsigmoid=self.ref_select_head(key)
                 reference_xy=reference_unsigmoid[...,:2]
 
                 #selection
-                lambda_q = self.lambda_q(key_pos)# [bs, num_keys, dim]
+                lambda_q = self.lambda_q(key)# [bs, num_keys, dim]
 
                 #key_pos_selection=self.key_ref_select_head(key_pos)
 
