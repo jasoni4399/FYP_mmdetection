@@ -152,7 +152,9 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                                           bs,num_queries,2)
                 lambda_q_selected=select(lambda_q,reference_xy,
                                         bs,num_queries,self.embed_dims)
-
+                
+                key_selected=select(key,reference_xy,
+                                      bs,num_queries,self.embed_dims)
                 #key_pos=select(key_pos_selection,reference_xy,
                 #               bs,num_queries,key_pos_selection.size(2))
                 #k_selected=select(k,reference_xy,
@@ -163,7 +165,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 reference_xy = selected_reference_sigmoid[...,:2]
 
                 pos_transformation = self.lambda_q_head(lambda_q_selected)
-                query=self.contentq_init(key)
+                query=self.contentq_init(key_selected)
             else:
                 reference_unsigmoid=self.ref_point_head(query_pos)
                 reference_xy=reference_unsigmoid[...,:2]
