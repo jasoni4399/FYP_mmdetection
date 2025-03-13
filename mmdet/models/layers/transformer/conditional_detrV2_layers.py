@@ -149,7 +149,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 #k=self.box_estimation(key_pos)
 
                 reference_selected=select(reference_xy,reference_xy,
-                                          bs,num_queries,self.embed_dims)
+                                          bs,num_queries,2)
                 lambda_q_selected=select(lambda_q,reference_xy,
                                         bs,num_queries,self.embed_dims)
 
