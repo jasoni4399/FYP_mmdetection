@@ -63,7 +63,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
 
-        self.ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         self.contentq_init=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
         #self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
@@ -134,12 +133,13 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #breakpoint()
         #reference = reference_unsigmoid.sigmoid()
         #reference_xy = reference[..., :2]
-        
+        reference_unsigmoid=self.ref_point_head(key)
+        reference_xy=reference_unsigmoid[...,:2]
+
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
-                reference_unsigmoid=self.ref_select_head(key)
-                reference_xy=reference_unsigmoid[...,:2]
+                
 
                 #selection
                 lambda_q = self.lambda_q(key)# [bs, num_keys, dim]
@@ -167,8 +167,6 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 pos_transformation = self.lambda_q_head(lambda_q_selected)
                 query=self.contentq_init(key_selected)
             else:
-                reference_unsigmoid=self.ref_point_head(query_pos)
-                reference_xy=reference_unsigmoid[...,:2]
                 pos_transformation = self.query_scale(query)
             # get sine embedding for the query reference
             ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
