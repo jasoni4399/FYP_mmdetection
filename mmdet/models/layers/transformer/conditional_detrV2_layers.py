@@ -64,7 +64,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
 
         self.contentq_init=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
-        #self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,2, 2)
+        self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
         #                       self.embed_dims, 2)
         #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
@@ -133,7 +133,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         #breakpoint()
         #reference = reference_unsigmoid.sigmoid()
         #reference_xy = reference[..., :2]
-        reference_xy=self.ref_point_head(key_pos)
+        reference_xy=self.ref_point_head(key)
 
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
@@ -148,11 +148,12 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
                 reference_selected=select(reference_xy,reference_xy,
                                           bs,num_queries,2)
-                lambda_q_selected=select(lambda_q,reference_xy,
-                                        bs,num_queries,self.embed_dims)
+                #lambda_q_selected=select(lambda_q,reference_xy,
+                #                        bs,num_queries,self.embed_dims)
                 
                 key_selected=select(key,reference_xy,
                                       bs,num_queries,self.embed_dims)
+                key_selected=self.key_ref_select_head(key_selected)
                 #key_pos=select(key_pos_selection,reference_xy,
                 #               bs,num_queries,key_pos_selection.size(2))
                 #k_selected=select(k,reference_xy,
@@ -162,7 +163,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 selected_reference_sigmoid=reference_selected.sigmoid()
                 reference_xy = selected_reference_sigmoid[...,:2]
 
-                pos_transformation = self.lambda_q_head(lambda_q_selected)
+                pos_transformation = self.lambda_q_head(lambda_q)
                 query=self.contentq_init(key_selected)
             else:
                 pos_transformation = self.query_scale(query)
