@@ -161,14 +161,15 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
 
                 #Ps
                 selected_reference_sigmoid=reference_selected.sigmoid()
-                reference_xy = selected_reference_sigmoid[...,:2]
+                init_reference_xy = selected_reference_sigmoid[...,:2]
 
                 pos_transformation = self.lambda_q_head(lambda_q_selected)
                 query=self.contentq_init(key_selected)
+                ref_sine_embed = coordinate_to_encoding(coord_tensor=init_reference_xy)
             else:
                 pos_transformation = self.query_scale(query)
             # get sine embedding for the query reference
-            ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
+                ref_sine_embed = coordinate_to_encoding(coord_tensor=reference_xy)
             # apply transformation
             ref_sine_embed = ref_sine_embed * pos_transformation
             query = layer(
