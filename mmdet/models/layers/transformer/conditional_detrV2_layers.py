@@ -59,12 +59,14 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                                self.embed_dims, 2)
         self.lambda_q_head = MLP(self.embed_dims, self.embed_dims,
                                 self.embed_dims, 2)
-        #self.ref_point_head = MLP(self.embed_dims, self.embed_dims, self.embed_dims, 2)
         self.ref_point_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
-        self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
+        self.ref_init_head = MLP(self.embed_dims, self.embed_dims, 2, 2)
 
-        self.contentq_init=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
+        
+        self.lambda_q=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
+        
         self.key_ref_select_head=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
+        self.contentq_init=MLP(self.embed_dims, self.embed_dims,self.embed_dims, 2)
         #self.content_query=MLP(self.embed_dims*2, self.embed_dims,
         #                       self.embed_dims, 2)
         #self.box_estimation=MLP(self.embed_dims, self.embed_dims,
@@ -119,7 +121,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
         def select(before_select ,selection_reference ,bs,num_q,dims):
             selection=torch.empty(bs,num_q,dims,device=query_pos.device)
             for i in range(bs):
-                selected=before_select[i][:][selection_reference[i][:,0]== torch.max(selection_reference[i][:,0])]
+                selected=before_select[i][:][selection_reference[i][:,0]==torch.max(selection_reference[i][:,0])]
                 if selected.size(0)<num_q:
                     selected = F.pad(selected, (0,0,0,num_q-selected.size(0)), "constant",0)
                 elif selected.size(0)>=num_q:
@@ -128,30 +130,28 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
             return selection
 
         #v1
-        #reference_unsigmoid = self.ref_point_head(
-        #    query_pos)  # [bs, num_queries, 2]
-        #breakpoint()
-        #reference = reference_unsigmoid.sigmoid()
-        #reference_xy = reference[..., :2]
-        reference_xy=self.ref_point_head(key)
-
+        reference_unsigmoid=self.ref_point_head(query_pos)
+        reference = reference_unsigmoid.sigmoid()
+        reference_xy = reference[..., :2]
         intermediate = []
         for layer_id, layer in enumerate(self.layers):
             if layer_id == 0:
+                #init box query
+                init_reference_xy = self.ref_init_head(key)
 
                 #selection
-                lambda_q = self.lambda_q(key_pos)# [bs, num_keys, dim]
+                lambda_q = self.lambda_q(key)# [bs, num_keys, dim]
 
                 #key_pos_selection=self.key_ref_select_head(key_pos)
 
                 #k=self.box_estimation(key_pos)
 
-                reference_selected=select(reference_xy,reference_xy,
+                reference_selected=select(init_reference_xy,init_reference_xy,
                                           bs,num_queries,2)
-                lambda_q_selected=select(lambda_q,reference_xy,
+                lambda_q_selected=select(lambda_q,init_reference_xy,
                                         bs,num_queries,self.embed_dims)
                 
-                key_selected=select(key,reference_xy,
+                key_selected=select(key,init_reference_xy,
                                       bs,num_queries,self.embed_dims)
                 key_selected=self.key_ref_select_head(key_selected)
                 #key_pos=select(key_pos_selection,reference_xy,
