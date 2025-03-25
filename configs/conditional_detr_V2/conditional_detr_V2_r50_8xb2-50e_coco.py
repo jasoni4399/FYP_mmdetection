@@ -27,8 +27,8 @@ model = dict(
                 _delete_=True,
                 embed_dims=256,
                 num_heads=8,
-                #attn_drop_H = 0.1,
-                #attn_drop_W = 0.1,
+                attn_drop_H = 0.1,
+                attn_drop_W = 0.1,
                 batch_first=True))),
 
     bbox_head=dict(
