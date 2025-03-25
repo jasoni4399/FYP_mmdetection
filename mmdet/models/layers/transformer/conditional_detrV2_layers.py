@@ -140,7 +140,7 @@ class ConditionalDetrTransformerV2Decoder(DetrTransformerDecoder):
                 init_reference_xy = self.ref_init_head(key)
 
                 #selection
-                lambda_q = self.lambda_q(key_pos)# [bs, num_keys, dim]
+                lambda_q = self.lambda_q(key)# [bs, num_keys, dim]
 
                 #key_pos_selection=self.key_ref_select_head(key_pos)
 
@@ -383,8 +383,8 @@ class ConditionalDetrTransformerV2EncoderLayer(BaseModule):
 
     def _init_layers(self) -> None:
         """Initialize self-attention, FFN, and normalization."""
-        self.self_attn = MultiheadAttention(**self.HV_attn_cfg)
-        #self.self_attn = HVAttention(**self.HV_attn_cfg)
+        #self.self_attn = MultiheadAttention(**self.HV_attn_cfg)
+        self.self_attn = HVAttention(**self.HV_attn_cfg)
         self.embed_dims = self.self_attn.embed_dims
         self.ffn = FFN(**self.ffn_cfg)
         norms_list = [
