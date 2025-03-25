@@ -4,19 +4,6 @@ model = dict(
     num_queries=300,
     content_width=[0.1,0.2,0.4],
     content_height=[0.1,0.2,0.4],
-    backbone=dict(
-    type='ResNet',
-    depth=50,
-    num_stages=4,
-    # Enable dilation in stage4 (last stage)
-    dilations=(1, 1, 1, 2),  
-    strides=(1, 2, 2, 1),    #Adjust strides to (1,2,2,1) for DC5
-    out_indices=(3,),
-    frozen_stages=1,
-    norm_cfg=dict(type='BN', requires_grad=False),
-    norm_eval=True,
-    style='pytorch',
-    init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
     decoder=dict(
         num_layers=6,
         layer_cfg=dict(
